@@ -1,0 +1,14 @@
+{
+  "name": "ciateq",
+  "version": "1.0.0",
+  "description": "Servicio que obtiene información de TTN para enviar a CIATEQ utilizando un formato definido",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Arturo J Lopez Fausto",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.22.0"
+  }
+}
