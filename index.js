@@ -5,7 +5,6 @@ let sensores = ['eui-70b3d57ed004607f']
 let estacion = "Martires de Rio Blanco"
 let latitud = 20.513908;
 let longitud = -103.176030;
-var jsonEnviado = {};
 
 /**
  * Obtiene los valores de la ultima hora de cada elemento, genera el promedio y lo envía
@@ -41,25 +40,176 @@ async function obtenerDatos(id){
 
             for(var i=0; i<datosSeparados.length; i++){
                 try{
-                    var datos = JSON.parse(datosSeparados[0]);
+                    var datos = JSON.parse(datosSeparados[i]);
                     var fecha = new Date(datos.result.uplink_message.received_at);
+                    //console.log("fecha obtenida: " + fecha);
+                    //console.log("fecha Ini: " + fechaIni);
+                    //console.log("fecha Fin: " + fechaFin);
                     if(fecha >= fechaIni && fecha <= fechaFin){
-                        so2 += parseInt(datos.result.uplink_message.decoded_payload.accelerometer_1.x);
+                        //console.log(datos.result.uplink_message.decoded_payload.accelerometer_1.x);
+                        so2 += parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.x);
                         so2Count++;
-                        co += parseInt(datos.result.uplink_message.decoded_payload.accelerometer_1.y);
+                        //console.log(datos.result.uplink_message.decoded_payload.accelerometer_1.y);
+                        co += parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.y);
                         coCount++;
-                        no2 += parseInt(datos.result.uplink_message.decoded_payload.accelerometer_1.z);
+                        //console.log(datos.result.uplink_message.decoded_payload.accelerometer_1.z);
+                        no2 += parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.z);
                         no2Count++;
                     }
                 }catch(error){
-                    console.log("Error en generacion de datos: " + error);
+                    
                 }
             }
+
+            //console.log("valor de SO2: " + so2);
+            //console.log("valor de co: " + co);
+            //console.log("valor de no2: " + no2);
             
             so2 = so2 / so2Count;
             co = co / coCount;
             no2 = no2 / no2Count;
 
+            var so2Text = so2.toLocaleString('es-MX', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 5
+            });
+
+            var coText = co.toLocaleString('es-MX', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 5
+            });
+
+            var no2Text = no2.toLocaleString('es-MX', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 5
+            });
+            
+            //console.log("so2Anterior: " + so2);
+            console.log("so2Text: " + so2Text);
+            console.log("coText: " + coText);
+            console.log("no2Text: " + no2Text);
+
+            var JSONCiateq = {
+                "stationInformation" :
+                {
+                    "description" : estacion,
+                    "idGroup" : "11",
+                    "sendingTimeStamp" : new Date(),
+                    "latitude" : latitud,
+                    "longitude" : longitud,
+                    "altitude" : 2200
+                },
+                "environmentalInformation" :
+                {
+                    "variables" :
+                    [
+                        {
+                            "temperature" : 
+                            {
+                                "value" : 0
+                            }
+                        },
+                        {
+                            "humidity" : 
+                            {
+                                "value" : 0
+                            }
+                        }
+                    ]
+                },
+                "airPollutants" : 
+                [
+                    {
+                        "pm25" : 
+                        {
+                            "value" : 0
+                        }
+                    },
+                    {
+                        "pm10" :
+                        {
+                            "value" : 0
+                        }
+                    },
+                    {
+                        "no2" :
+                        {
+                            "value" : no2Text
+                        }
+                    },
+                    {
+                        "co" :
+                        {
+                            "value" : coText
+                        }
+                    },
+                    {
+                        "o3" :
+                        {
+                            "value" : 0
+                        }
+                    },
+                    {
+                        "so2" :
+                        {
+                            "value" : so2Text
+                        }
+                    },
+                    {
+                        "c6h6" :
+                        {
+                            "value" : 0
+                        }
+                    }
+                ],
+                "waterIndicators" :
+                [
+                    {
+                        "ph" : 
+                        {
+                            "value" : 5
+                        }
+                    },
+                    {
+                        "pb" : 
+                        {
+                            "value" : 0
+                        }
+                    },
+                    {
+                        "conductivity" : 
+                        {
+                            "value" : 0
+                        }
+                    },
+                    {
+                        "dissolvedOxygen" : 
+                        {
+                            "value" : 0
+                        }
+                    },
+                    {
+                        "temperature" :
+                        {
+                            "value" : 0
+                        }
+                    },
+                    {
+                        "cd" :
+                        {
+                            "value" : 0
+                        }
+                    },
+                    {
+                        "haze" :
+                        {
+                            "value" : 0
+                        }
+                    }
+                ]
+            }            
+
+            console.log(JSON.stringify(JSONCiateq));
             //console.log(j.result.uplink_message.decoded_payload.accelerometer_1.x);
             
 
