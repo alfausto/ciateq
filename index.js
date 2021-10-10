@@ -6,6 +6,18 @@ let estacion = "Martires de Rio Blanco"
 let latitud = 20.513908;
 let longitud = -103.176030;
 
+let opcionesObtenerLlave = {
+    url: "http://semadet.ciateq.net.mx:8080/semadet/api/seguridad/autenticar",
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    data: {
+        usuario: "$uSuario_embed20$$",
+        contrasena: "$cCOnTr0294_·M#",
+    }
+}
+
 /**
  * Obtiene los valores de la ultima hora de cada elemento, genera el promedio y lo envía
  * @param {Identificador del collar} id 
@@ -210,35 +222,27 @@ async function obtenerDatos(id){
             }            
 
             console.log(JSON.stringify(JSONCiateq));
-            //console.log(j.result.uplink_message.decoded_payload.accelerometer_1.x);
-            
-
-            /*
-            for(var i=0; i<datos.length; datos++){
-                
-            }
-            await sacar(response.data[response.data.length-1].device_id, response.data[response.data.length-1].time)
-            if(!similar){
-                var elemento = {
-                    _id: response.data[response.data.length-1].device_id,
-                    numarete: "2-121 MS",
-                    fecha: response.data[response.data.length-1].time,
-                    temperatura: response.data[response.data.length-1].temperature_2,
-                    gps: response.data[response.data.length-1].gps_3,
-                    giroscopio: response.data[response.data.length-1].gyrometer_0,
-                    acelerometro: response.data[response.data.length-1].accelerometer_1,
-                    magnetometro: response.data[response.data.length-1].accelerometer_4
+              
+            /*axios.request(opcionesObtenerLlave).then(function (response) {
+                let headersEnvioJSON = {
+                    "token-sx": reponse.data.token,
+                    "Content-Type": "application/json" 
                 }
-                await axios.put(`http://localhost:5000/api/collares/`, elemento, {
-                    headers: {
-                        'Access-Control-Allow-Origin': '*'
-                    }
-                });
-                console.log("Valor guardado en la BD");
-            }*/
+                let opcionesEnvioJSON = {
+                    url: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
+                    method: "PUT",
+                    headers: headersEnvioJSON,
+                    data: JSONCiateq
+                }
+                axios.request(reqOptions).then(function (response) {
+                    console.log("Elemento enviado satisfactoriamente");
+                  })
+
+            })*/
+            
         }
     }).catch((error)=>{
-        console.log(`Error al tratar de obtener la información: ${error}`);
+        console.log(`Error al interactuar con la información obtenida: ${error}`);
     })
 }
 
