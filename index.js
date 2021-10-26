@@ -1,6 +1,6 @@
 const axios = require('axios').default;
 //const intervaloProceso = 3600000; //1 Hora
-const intervaloProceso =1000; //1 seg
+const intervaloProceso = 60000; //1 min
 let sensores = ['eui-70b3d57ed004607f']
 let estacion = "Martires de Rio Blanco"
 let latitud = 20.513908;
@@ -43,6 +43,7 @@ async function obtenerDatos(id){
             
             var datosCrudos = response.data;
             var datosSeparados = datosCrudos.split("\n");
+            console.log("Datos separados: " + datosSeparados.length);
             //var fechaIni = new Date("2021-10-11T14:53:00Z"); //Test
             var fechaIni = new Date(); //Cambiar a fecha-hora del dia
             var fechaFin = new Date(); //cambiar a fecha hora del dia y quitar documentacion de sig linea
@@ -58,16 +59,16 @@ async function obtenerDatos(id){
                     var fecha = new Date(horaZSlice);
                     //console.log("Fecha convertida: " + fecha);
                     
-                    if(fecha >= fechaIni && fecha <= fechaFin){
+                    if(fecha >= fechaIni && fecha <= fechaFin){ //Desactivar condicion para envio masivo
                         so2 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.x);
                         co = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.y);
                         no2 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.z);
-                        break;
+                        break; //Desactivar break para envio masivo
                     }
                 }catch(error){
                     
                 }
-            }
+            } //Llave del FOR: Activar cuando se envia de solo 1. Desactivar cuando hagamos envio masivo
             
             console.log("so2: " + so2);
             console.log("co: " + co);
@@ -77,7 +78,7 @@ async function obtenerDatos(id){
                 "stationInformation" :
                 {
                     "description" : estacion,
-                    "idGroup" : "11",
+                    "idGroup" : "4",
                     "sendingTimeStamp" : fecha,
                     "latitude" : latitud,
                     "longitude" : longitud,
@@ -195,10 +196,10 @@ async function obtenerDatos(id){
 
             console.log(JSON.stringify(JSONCiateq));
               
-            /*axios.request(opcionesObtenerLlave).then(function (response) {
-                //console.log("llave: " + response.status);
+            axios.request(opcionesObtenerLlave).then(function (response) {
+                //console.log("token: " + response.data.msg.token);
                 let headersEnvioJSON = {
-                    "token-sx": response.data.token,
+                    "token-sx": response.data.msg.token,
                     "Content-Type": "application/json" 
                 }
                 let opcionesEnvioJSON = {
@@ -213,8 +214,9 @@ async function obtenerDatos(id){
                     }else{
                         console.log("Hubo un error al enviar la información. El codigo de error fue: " + response.status)
                     } 
-                })
-            })*/
+                });
+            });
+            //} //Llave de FOR. Desactivar con envio de solo 1. Activar cuando se usa envio masivo
         }
     }).catch((error)=>{
         console.log(`Error al interactuar con la información obtenida: ${error}`);
@@ -222,18 +224,18 @@ async function obtenerDatos(id){
 }
 
 async function main () {
-    /*setInterval(async()=> {
+    setInterval(async()=> {
         for(var i=0; i<sensores.length; i++){
             console.log("Revisando: " + sensores[i]);
             await obtenerDatos(sensores[i]);
         }
         console.log("---------------------------------------------------------------------");
-    }, intervaloProceso);*/
-    for(var i=0; i<sensores.length; i++){
+    }, intervaloProceso);
+    /*for(var i=0; i<sensores.length; i++){
         console.log("Revisando: " + sensores[i]);
         await obtenerDatos(sensores[i]);
     }
-    console.log("---------------------------------------------------------------------");
+    console.log("---------------------------------------------------------------------");*/
 }
 
 main();
