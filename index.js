@@ -43,14 +43,20 @@ async function obtenerDatos(id){
             
             var datosCrudos = response.data;
             var datosSeparados = datosCrudos.split("\n");
-            var fechaIni = new Date("2021-10-11T14:53:00Z"); //Cambiar a fecha-hora del dia
-            var fechaFin = new Date("2021-10-11T14:54:00Z"); //cambiar a fecha hora del dia y quitar documentacion de sig linea
-            //fechaFin = fechaFin.setHours(fechaFin.getHours() + 1);
+            //var fechaIni = new Date("2021-10-11T14:53:00Z"); //Test
+            var fechaIni = new Date(); //Cambiar a fecha-hora del dia
+            var fechaFin = new Date(); //cambiar a fecha hora del dia y quitar documentacion de sig linea
+            fechaFin = fechaFin.setHours(fechaFin.getHours() + 1);
 
             for(var i=0; i<datosSeparados.length; i++){
                 try{
                     var datos = JSON.parse(datosSeparados[i]);
-                    var fecha = new Date(datos.result.uplink_message.received_at);
+                    var horaZ = "" + datos.result.uplink_message.received_at;
+                    //console.log("datosZ: " + horaZ);
+                    var horaZSlice = horaZ.slice(0, horaZ.length-1);
+                    //console.log("horaZSlide: " + horaZSlice);
+                    var fecha = new Date(horaZSlice);
+                    //console.log("Fecha convertida: " + fecha);
                     
                     if(fecha >= fechaIni && fecha <= fechaFin){
                         so2 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.x);
@@ -72,7 +78,7 @@ async function obtenerDatos(id){
                 {
                     "description" : estacion,
                     "idGroup" : "11",
-                    "sendingTimeStamp" : new Date(),
+                    "sendingTimeStamp" : fecha,
                     "latitude" : latitud,
                     "longitude" : longitud,
                     "altitude" : 2200
@@ -189,7 +195,7 @@ async function obtenerDatos(id){
 
             console.log(JSON.stringify(JSONCiateq));
               
-            axios.request(opcionesObtenerLlave).then(function (response) {
+            /*axios.request(opcionesObtenerLlave).then(function (response) {
                 //console.log("llave: " + response.status);
                 let headersEnvioJSON = {
                     "token-sx": response.data.token,
@@ -208,7 +214,7 @@ async function obtenerDatos(id){
                         console.log("Hubo un error al enviar la información. El codigo de error fue: " + response.status)
                     } 
                 })
-            })
+            })*/
         }
     }).catch((error)=>{
         console.log(`Error al interactuar con la información obtenida: ${error}`);
