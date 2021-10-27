@@ -48,6 +48,8 @@ async function obtenerDatos(id){
             var fechaIni = new Date(); //Cambiar a fecha-hora del dia
             var fechaFin = new Date(); //cambiar a fecha hora del dia y quitar documentacion de sig linea
             fechaFin = fechaFin.setHours(fechaFin.getHours() + 1);
+            var fecha = new Date();
+            var horaZSlice = "";
 
             for(var i=0; i<datosSeparados.length; i++){
                 try{
@@ -56,7 +58,7 @@ async function obtenerDatos(id){
                     //console.log("datosZ: " + horaZ);
                     var horaZSlice = horaZ.slice(0, horaZ.length-1);
                     //console.log("horaZSlide: " + horaZSlice);
-                    var fecha = new Date(horaZSlice);
+                    fecha = new Date(horaZSlice);
                     //console.log("Fecha convertida: " + fecha);
                     
                     if(fecha >= fechaIni && fecha <= fechaFin){ //Desactivar condicion para envio masivo
@@ -79,7 +81,7 @@ async function obtenerDatos(id){
                 {
                     "description" : estacion,
                     "idGroup" : "4",
-                    "sendingTimeStamp" : fecha,
+                    "sendingTimeStamp" : getFechaCIATEQ(fecha),
                     "latitude" : latitud,
                     "longitude" : longitud,
                     "altitude" : 2200
@@ -196,7 +198,7 @@ async function obtenerDatos(id){
 
             console.log(JSON.stringify(JSONCiateq));
               
-            axios.request(opcionesObtenerLlave).then(function (response) {
+            /*axios.request(opcionesObtenerLlave).then(function (response) {
                 //console.log("token: " + response.data.msg.token);
                 let headersEnvioJSON = {
                     "token-sx": response.data.msg.token,
@@ -215,7 +217,7 @@ async function obtenerDatos(id){
                         console.log("Hubo un error al enviar la información. El codigo de error fue: " + response.status)
                     } 
                 });
-            });
+            });*/
             //} //Llave de FOR. Desactivar con envio de solo 1. Activar cuando se usa envio masivo
         }
     }).catch((error)=>{
@@ -223,19 +225,53 @@ async function obtenerDatos(id){
     })
 }
 
+function getMes (dmes) {
+    return dmes.getMonth() + 1
+}
+  
+function getFormatoDia (dia) {
+    if ( dia.getDate() < 10) {
+      //console.log(`Regrese: 0${dia.getDate()}`)
+      return `0${dia.getDate()}`
+    } else {
+      //console.log(`Regrese: ${dia.getDate()}`)
+      return `${dia.getDate()}`
+    }
+}
+
+function getFormatoMes (mes) {
+    if (mes < 10) {
+      return `0${mes}`
+    } else {
+      return `${mes}`
+    }
+  }
+  
+function getFormatoHora (tiempo) {
+    if (tiempo < 10) {
+      return `0${tiempo}`
+    } else {
+      return `${tiempo}`
+    }
+}
+      
+function getFechaCIATEQ (d) {
+    return d.getFullYear() + "-" + getFormatoMes(getMes(d)) + "-" + getFormatoDia(d) + " " + getFormatoHora(d.getHours()) + ":" + getFormatoHora(d.getMinutes()) + ":" + getFormatoHora(d.getSeconds());
+}
+
 async function main () {
-    setInterval(async()=> {
+    /*setInterval(async()=> {
         for(var i=0; i<sensores.length; i++){
             console.log("Revisando: " + sensores[i]);
             await obtenerDatos(sensores[i]);
         }
         console.log("---------------------------------------------------------------------");
-    }, intervaloProceso);
-    /*for(var i=0; i<sensores.length; i++){
+    }, intervaloProceso);*/
+    for(var i=0; i<sensores.length; i++){
         console.log("Revisando: " + sensores[i]);
         await obtenerDatos(sensores[i]);
     }
-    console.log("---------------------------------------------------------------------");*/
+    console.log("---------------------------------------------------------------------");
 }
 
 main();
