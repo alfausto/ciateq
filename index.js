@@ -198,7 +198,7 @@ async function obtenerDatos(id){
 
             console.log(JSON.stringify(JSONCiateq));
               
-            /*axios.request(opcionesObtenerLlave).then(function (response) {
+            axios.request(opcionesObtenerLlave).then(function (response) {
                 //console.log("token: " + response.data.msg.token);
                 let headersEnvioJSON = {
                     "token-sx": response.data.msg.token,
@@ -217,7 +217,7 @@ async function obtenerDatos(id){
                         console.log("Hubo un error al enviar la información. El codigo de error fue: " + response.status)
                     } 
                 });
-            });*/
+            });
             //} //Llave de FOR. Desactivar con envio de solo 1. Activar cuando se usa envio masivo
         }
     }).catch((error)=>{
@@ -260,18 +260,18 @@ function getFechaCIATEQ (d) {
 }
 
 async function main () {
-    /*setInterval(async()=> {
+    setInterval(async()=> {
         for(var i=0; i<sensores.length; i++){
             console.log("Revisando: " + sensores[i]);
             await obtenerDatos(sensores[i]);
         }
         console.log("---------------------------------------------------------------------");
-    }, intervaloProceso);*/
-    for(var i=0; i<sensores.length; i++){
+    }, intervaloProceso);
+    /*for(var i=0; i<sensores.length; i++){
         console.log("Revisando: " + sensores[i]);
         await obtenerDatos(sensores[i]);
     }
-    console.log("---------------------------------------------------------------------");
+    console.log("---------------------------------------------------------------------");*/
 }
 
 main();
