@@ -2,10 +2,24 @@ const axios = require('axios').default;
 //const intervaloProceso = 3600000; //1 Hora
 const intervaloProceso = 60000; //1 min
 //const intervaloProceso = 1000; //1 seg
-let sensores = ['eui-70b3d57ed004607f']
-let estacion = "Martires de Rio Blanco"
-let latitud = 20.513908;
-let longitud = -103.176030;
+let sensores = [
+    {
+        idSensor: 'eui-70b3d57ed004607f',
+        estacion: "Martires de Rio Blanco",
+        idEstacion: 4,
+        latitud: 20.513908,
+        longitud: -103.176030,
+        altitud: 1512
+    },
+    {
+        idSensor: 'eui-60c5abfffe789db4',
+        estacion: "Av. Lázaro Cárdenas (SEMADET)",
+        idEstacion: 1,
+        latitud: 20.625052,
+        longitud: -103.305382,
+        altitud: 1608
+    }
+]
 var elementosSinEnviar = [];
 var token = "";
 var conToken = false;
@@ -24,15 +38,15 @@ let opcionesObtenerLlave = {
 
 /**
  * Obtiene los valores de la ultima hora de cada elemento, genera el promedio y lo envía
- * @param {Identificador del collar} id 
+ * @param {Identificador de los datos del sensor} id 
  */
 async function obtenerDatos(id){
     let headersList = {
         'Accept': 'text/event-stream',
         "Authorization": "Bearer NNSXS.YIVTXIFRYE65FY2MMGKAVVCMRFPNAZXMP7VWRIQ.UJTMOPGL7XG6OHAOOBTXD4Y563TJG5UWB6WOUABUBEHISKU5TRGA" 
     };
-    console.log(`Obteniendo valores de sensor: ${id}...`);
-    await axios.get(`https://nam1.cloud.thethings.network/api/v3/as/applications/prueba3/devices/${id}/packages/storage/`, {
+    console.log(`Obteniendo valores de sensor: ${id.idSensor}...`);
+    await axios.get(`https://nam1.cloud.thethings.network/api/v3/as/applications/prueba3/devices/${id.idSensor}/packages/storage/`, {
         headers: headersList
     }).then(async (response)=>{
         if(response.data == ""){            
@@ -40,10 +54,13 @@ async function obtenerDatos(id){
         }else{
             var pm10 = 0; //Aun no se recibe
             var pm25 = 0; //Aun no se recibe
-            var o3 = 0; //Aun no se recibe
+            var o3 = 0;
             var so2 = 0;
             var no2 = 0;
             var co = 0;
+            var c6h6 = 0;
+            var humedadRelativa = 0;
+            var temperatura = 0;
             
             var datosCrudos = response.data;
             var datosSeparados = datosCrudos.split("\n");
@@ -69,6 +86,10 @@ async function obtenerDatos(id){
                         so2 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.x);
                         co = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.y);
                         no2 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.z);
+                        o3 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.x);
+                        c6h6 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.y);
+                        humedadRelativa = parseFloat(datos.result.uplink_message.decoded_payload.relative_humidity_3);
+                        temperatura = parseFloat(datos.result.uplink_message.decoded_payload.temperature_4);
                         break; //Desactivar break para envio masivo
                     }
                 }catch(error){
@@ -79,16 +100,20 @@ async function obtenerDatos(id){
             console.log("so2: " + so2);
             console.log("co: " + co);
             console.log("no2: " + no2);
+            console.log("o3: " + o3);
+            console.log("c6h6: " + c6h6);
+            console.log("humedad Relativa: " + humedadRelativa);
+            console.log("temperatura: " + temperatura);
 
             var JSONCiateq = {
                 "stationInformation" :
                 {
-                    "description" : estacion,
+                    "description" : id.estacion,
                     "idGroup" : "4",
                     "sendingTimeStamp" : getFechaCIATEQ(fecha),
-                    "latitude" : latitud,
-                    "longitude" : longitud,
-                    "altitude" : 2200
+                    "latitude" : id.latitud,
+                    "longitude" : id.longitud,
+                    "altitude" : id.altitud
                 },
                 "environmentalInformation" :
                 {
@@ -97,13 +122,13 @@ async function obtenerDatos(id){
                         {
                             "temperature" : 
                             {
-                                "value" : 0
+                                "value" : temperatura
                             }
                         },
                         {
                             "humidity" : 
                             {
-                                "value" : 0
+                                "value" : humedadRelativa
                             }
                         }
                     ]
@@ -137,7 +162,7 @@ async function obtenerDatos(id){
                     {
                         "o3" :
                         {
-                            "value" : 0
+                            "value" : o3
                         }
                     },
                     {
@@ -149,7 +174,7 @@ async function obtenerDatos(id){
                     {
                         "c6h6" :
                         {
-                            "value" : 0
+                            "value" : c6h6
                         }
                     }
                 ],
@@ -200,13 +225,22 @@ async function obtenerDatos(id){
                 ]
             }            
 
-            //console.log(JSON.stringify(JSONCiateq));
-            console.log("verificando elementos sin enviar....");
-            await enviarDatosRezagados();            
+            console.log(JSON.stringify(JSONCiateq));
+            //console.log("verificando elementos sin enviar....");
+            //await enviarDatosRezagados();
             await enviarDatosCIATEQ(JSONCiateq);
+            pm10 = 0;
+            pm25 = 0;
+            o3 = 0;
+            so2 = 0;
+            no2 = 0;
+            co = 0;
+            c6h6 = 0;
+            humedadRelativa = 0;
+            temperatura = 0;
         }
     }).catch((error)=>{
-        console.log(`Error al interactuar con la información obtenida: ${error}`);
+        console.log(`Error al interactuar con la información proporcionada del sensor: ${error}`);
     })
 }
 
@@ -351,8 +385,10 @@ function getFechaCIATEQ (d) {
 
 async function main () {
     setInterval(async()=> {
+        console.log("verificando elementos sin enviar....");
+        await enviarDatosRezagados();
         for(var i=0; i<sensores.length; i++){
-            console.log("Revisando: " + sensores[i]);
+            console.log("Revisando: " + sensores[i].idSensor);
             await obtenerDatos(sensores[i]);
         }
         console.log("---------------------------------------------------------------------");
