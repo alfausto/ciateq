@@ -1,10 +1,14 @@
 const axios = require('axios').default;
 //const intervaloProceso = 3600000; //1 Hora
 const intervaloProceso = 60000; //1 min
+//const intervaloProceso = 1000; //1 seg
 let sensores = ['eui-70b3d57ed004607f']
 let estacion = "Martires de Rio Blanco"
 let latitud = 20.513908;
 let longitud = -103.176030;
+var elementosSinEnviar = [];
+var token = "";
+var conToken = false;
 
 let opcionesObtenerLlave = {
     url: "http://semadet.ciateq.net.mx:8080/semadet/api/seguridad/autenticar",
@@ -196,33 +200,119 @@ async function obtenerDatos(id){
                 ]
             }            
 
-            console.log(JSON.stringify(JSONCiateq));
-              
-            axios.request(opcionesObtenerLlave).then(function (response) {
-                //console.log("token: " + response.data.msg.token);
-                let headersEnvioJSON = {
-                    "token-sx": response.data.msg.token,
-                    "Content-Type": "application/json" 
-                }
-                let opcionesEnvioJSON = {
-                    url: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
-                    method: "PUT",
-                    headers: headersEnvioJSON,
-                    data: JSONCiateq
-                }
-                axios.request(opcionesEnvioJSON).then(function (response) {
-                    if(response.status == 200){
-                        console.log("Elemento enviado satisfactoriamente");
-                    }else{
-                        console.log("Hubo un error al enviar la información. El codigo de error fue: " + response.status)
-                    } 
-                });
-            });
-            //} //Llave de FOR. Desactivar con envio de solo 1. Activar cuando se usa envio masivo
+            //console.log(JSON.stringify(JSONCiateq));
+            console.log("verificando elementos sin enviar....");
+            await enviarDatosRezagados();            
+            await enviarDatosCIATEQ(JSONCiateq);
         }
     }).catch((error)=>{
         console.log(`Error al interactuar con la información obtenida: ${error}`);
     })
+}
+
+async function enviarDatosRezagados(){
+    if(elementosSinEnviar.length > 0){
+        var pausar = false;
+        console.log(`Se encontraron ${elementosSinEnviar.length} elementos rezagados. Se intentarán enviar...`);
+        while(elementosSinEnviar.length > 0 && pausar != false){
+            datos = elementosSinEnviar.pop();
+            console.log("dato rezagado por enviar: " + JSON.stringify(datos));
+            var contador = 1;
+            if (token != "" || token != undefined){
+                let headersEnvioJSON = {
+                    "token-sx": token,
+                    "Content-Type": "application/json" 
+                };
+                let opcionesEnvioJSON = {
+                    url: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
+                    method: "PUT",
+                    headers: headersEnvioJSON,
+                    data: datos
+                };
+                await axios.request(opcionesEnvioJSON).then(function (response) {
+                    if(response.status == 200){
+                        console.log(`Elemento ${contador} de ${elementosSinEnviar.length-1} enviado satisfactoriamente`);
+                        contador++;
+                    }else{
+                        console.log("Hubo un error al enviar la información. El JSON se guardará para enviarse despues. " + response.status)
+                        elementosSinEnviar.push(datos);
+                        pausar = true;
+                    } 
+                }).catch(function (error) {
+                    console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
+                    elementosSinEnviar.push(datos);
+                    pausar = true;
+                });
+            }else{
+                console.log("Aun no se cuenta con Token. Se buscará nuevo Token...")
+            }
+        }
+    }else{
+        console.log("Sin datos rezagados...");
+    }
+}
+
+async function enviarDatosCIATEQ(datos){
+    if(conToken == false){
+        await axios.request(opcionesObtenerLlave).then(function (response) {
+            console.log("token obtenido: " + response.data.token);
+            conToken = true;
+            token = response.data.token;
+
+            let headersEnvioJSON = {
+                "token-sx": response.data.token,
+                "Content-Type": "application/json" 
+            };
+            
+            let opcionesEnvioJSON = {
+                url: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
+                method: "PUT",
+                headers: headersEnvioJSON,
+                data: datos
+            };  
+            
+            axios.request(opcionesEnvioJSON).then(function (response) {
+                if(response.status == 200){
+                    console.log("Elemento enviado satisfactoriamente");
+                }else{
+                    console.log("Hubo un error al enviar la información. El JSON se guardará para enviarse despues. " + response.status)
+                    elementosSinEnviar.push(datos);
+                } 
+            }).catch(function (error) {
+                console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
+                console.log("Elemento a guardar: " + JSON.stringify(datos));
+                elementosSinEnviar.push(datos);
+            });
+        }).catch(function (error) {
+            console.log("Error obteniendo el token de conexion. El JSON se guardará para enviarse despues." + error);
+            console.log("Elemento a guardar: " + JSON.stringify(datos));
+            elementosSinEnviar.push(datos);
+            conToken = false;
+        });
+    }else{
+        let headersEnvioJSON = {
+            "token-sx": token,
+            "Content-Type": "application/json" 
+        };
+        let opcionesEnvioJSON = {
+            url: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
+            method: "PUT",
+            headers: headersEnvioJSON,
+            data: datos
+        };
+        
+        await axios.request(opcionesEnvioJSON).then(function (response) {
+            if(response.status == 200){
+                console.log("Elemento enviado satisfactoriamente");
+            }else{
+                console.log("Hubo un error al enviar la información. El JSON se guardará para enviarse despues. " + response.status)
+                elementosSinEnviar.push(datos);
+            } 
+        }).catch(function (error) {
+            console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
+            elementosSinEnviar.push(datos);
+        });
+    }  
 }
 
 function getMes (dmes) {
