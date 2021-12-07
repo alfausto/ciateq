@@ -146,7 +146,7 @@ async function obtenerDatos(id){
                     "stationInformation" :
                     {
                         "description" : id.estacion,
-                        "idGroup" : id.idEstacion,
+                        "idGroup" : idgroup,
                         "sendingTimeStamp" : getFechaCIATEQ(fecha),
                         "latitude" : id.latitud,
                         "longitude" : id.longitud,
