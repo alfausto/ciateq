@@ -1,3 +1,4 @@
+var fs = require('fs');
 const axios = require('axios').default;
 //const intervaloProceso = 3600000; //1 Hora
 const intervaloProceso = 60000; //1 min
@@ -145,7 +146,7 @@ async function obtenerDatos(id){
                     "stationInformation" :
                     {
                         "description" : id.estacion,
-                        "idGroup" : idgroup,
+                        "idGroup" : id.idEstacion,
                         "sendingTimeStamp" : getFechaCIATEQ(fecha),
                         "latitude" : id.latitud,
                         "longitude" : id.longitud,
@@ -219,7 +220,7 @@ async function obtenerDatos(id){
                         {
                             "ph" : 
                             {
-                                "value" : 5
+                                "value" : 0
                             }
                         },
                         {
@@ -261,9 +262,15 @@ async function obtenerDatos(id){
                     ]
                 }            
 
+                //Añadiendo datos a CSV
+                var fila = `${id.estacion}, ${id.idEstacion}, ${datos.result.uplink_message.received_at}, ${temperatura}, ${humedadRelativa}, ${no2}, ${co}, ${o3}, ${so2}, ${c6h6} \n`
+                console.log("Fila: " + fila)
+                fs.appendFile('datos.csv', fila, function (err) {
+                    if (err) throw err;
+                });
                 console.log(JSON.stringify(JSONCiateq));
-                //console.log("verificando elementos sin enviar....");
-                //await enviarDatosRezagados();
+
+                //Envio de datos a CIATEQ
                 await enviarDatosCIATEQ(JSONCiateq);
                 pm10 = 0;
                 pm25 = 0;
@@ -275,6 +282,7 @@ async function obtenerDatos(id){
                 humedadRelativa = 0;
                 temperatura = 0;
             }
+            //} //LlaveFor. Activar cuando sea envio masivo
         }
     }).catch((error)=>{
         console.log(`Error al interactuar con la información proporcionada del sensor: ${error}`);
@@ -425,6 +433,25 @@ function getFechaCIATEQ (d) {
 }
 
 async function main () {
+    var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6 \n';
+    try{
+        if(fs.existsSync('datos.csv')){
+            console.log("El archivo existe.. se omite encabezado");
+            /*fs.open('datos.csv', 'w', function(err, file){
+                if(err) throw err;
+            });*/
+        }else{
+            console.log("El archivo no existe... se crea y añade encabezado")
+            fs.open('datos.csv', 'w', function(err, file){
+                if(err) throw err;
+            });
+            fs.appendFile('datos.csv', encabezados, function (err) {
+                if (err) throw err;
+            }); 
+        }
+    }catch(err){
+        console.log("Error al revisar existencia de archivo. " + err)
+    }
     setInterval(async()=> {
         console.log("verificando elementos sin enviar....");
         await enviarDatosRezagados();
@@ -434,8 +461,10 @@ async function main () {
         }
         console.log("---------------------------------------------------------------------");
     }, intervaloProceso);
+
+    //Para uso sin temporaizador (test)
     /*for(var i=0; i<sensores.length; i++){
-        console.log("Revisando: " + sensores[i]);
+        console.log("Revisando: " + sensores[i].idSensor);
         await obtenerDatos(sensores[i]);
     }
     console.log("---------------------------------------------------------------------");*/
