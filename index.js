@@ -4,20 +4,44 @@ const intervaloProceso = 60000; //1 min
 //const intervaloProceso = 1000; //1 seg
 let sensores = [
     {
-        idSensor: 'eui-70b3d57ed004607f',
-        estacion: "Martires de Rio Blanco",
-        idEstacion: 4,
-        latitud: 20.513908,
-        longitud: -103.176030,
-        altitud: 1512
-    },
-    {
-        idSensor: 'eui-60c5abfffe789db4',
-        estacion: "Av. Lázaro Cárdenas (SEMADET)",
+        idSensor: 'eui-60c5a8fffe78a270',
+        estacion: "Av. Lázaro Cardenas (SEMADET)",
         idEstacion: 1,
         latitud: 20.625052,
         longitud: -103.305382,
         altitud: 1608
+    },
+    {
+        idSensor: 'eui-60c5a8fffe789e39',
+        estacion: "Estación de Bomberos El Salto",
+        idEstacion: 2,
+        latitud: 20.5133528,
+        longitud: -103.237711,
+        altitud: 1549
+    },
+    {
+        idSensor: 'eui-60c5abfffe789db4',
+        estacion: "Tienda de Abarrotes Santa Maria Tequepexpan",
+        idEstacion: 3,
+        latitud: 20.5966889,
+        longitud: -103.39381944444445,
+        altitud: 1592
+    },
+    {
+        idSensor: 'eui-60c5a8fffe789e25',
+        estacion: "Martires de Rio Blanco",
+        idEstacion: 4,
+        latitud: 20.5138722,
+        longitud: -103.17602222222223,
+        altitud: 1512
+    },
+    {
+        idSensor: 'eui-60c5a8fffe789dec',
+        estacion: "DIF Juanacatlán",
+        idEstacion: 5,
+        latitud: 20.5105806,
+        longitud: -103.16968055555556,
+        altitud: 1528
     }
 ]
 var elementosSinEnviar = [];
@@ -96,7 +120,15 @@ async function obtenerDatos(id){
                     
                 }
             } //Llave del FOR: Activar cuando se envia de solo 1. Desactivar cuando hagamos envio masivo
-            
+        
+            if (isNaN(temperatura)){
+                temperatura = 0;
+            }
+
+            if(isNaN(humedadRelativa)){
+                humedadRelativa =0;
+            }
+
             console.log("so2: " + so2);
             console.log("co: " + co);
             console.log("no2: " + no2);
@@ -105,139 +137,144 @@ async function obtenerDatos(id){
             console.log("humedad Relativa: " + humedadRelativa);
             console.log("temperatura: " + temperatura);
 
-            var JSONCiateq = {
-                "stationInformation" :
-                {
-                    "description" : id.estacion,
-                    "idGroup" : "4",
-                    "sendingTimeStamp" : getFechaCIATEQ(fecha),
-                    "latitude" : id.latitud,
-                    "longitude" : id.longitud,
-                    "altitude" : id.altitud
-                },
-                "environmentalInformation" :
-                {
-                    "variables" :
+            if(so2 == 0 && co == 0 && no2 == 0 && o3 == 0 && c6h6 == 0 && humedadRelativa == 0 && temperatura == 0){
+                console.log(`valores en 0 de la estacion ${id.estacion}. No se enviará nada`);
+            }else{
+                var idgroup = "" + id.idEstacion
+                var JSONCiateq = {
+                    "stationInformation" :
+                    {
+                        "description" : id.estacion,
+                        "idGroup" : idgroup,
+                        "sendingTimeStamp" : getFechaCIATEQ(fecha),
+                        "latitude" : id.latitud,
+                        "longitude" : id.longitud,
+                        "altitude" : id.altitud
+                    },
+                    "environmentalInformation" :
+                    {
+                        "variables" :
+                        [
+                            {
+                                "temperature" : 
+                                {
+                                    "value" : temperatura
+                                }
+                            },
+                            {
+                                "humidity" : 
+                                {
+                                    "value" : humedadRelativa
+                                }
+                            }
+                        ]
+                    },
+                    "airPollutants" : 
                     [
                         {
-                            "temperature" : 
+                            "pm25" : 
                             {
-                                "value" : temperatura
+                                "value" : 0
                             }
                         },
                         {
-                            "humidity" : 
+                            "pm10" :
                             {
-                                "value" : humedadRelativa
+                                "value" : 0
+                            }
+                        },
+                        {
+                            "no2" :
+                            {
+                                "value" : no2
+                            }
+                        },
+                        {
+                            "co" :
+                            {
+                                "value" : co
+                            }
+                        },
+                        {
+                            "o3" :
+                            {
+                                "value" : o3
+                            }
+                        },
+                        {
+                            "so2" :
+                            {
+                                "value" : so2
+                            }
+                        },
+                        {
+                            "c6h6" :
+                            {
+                                "value" : c6h6
+                            }
+                        }
+                    ],
+                    "waterIndicators" :
+                    [
+                        {
+                            "ph" : 
+                            {
+                                "value" : 5
+                            }
+                        },
+                        {
+                            "pb" : 
+                            {
+                                "value" : 0
+                            }
+                        },
+                        {
+                            "conductivity" : 
+                            {
+                                "value" : 0
+                            }
+                        },
+                        {
+                            "dissolvedOxygen" : 
+                            {
+                                "value" : 0
+                            }
+                        },
+                        {
+                            "temperature" :
+                            {
+                                "value" : 0
+                            }
+                        },
+                        {
+                            "cd" :
+                            {
+                                "value" : 0
+                            }
+                        },
+                        {
+                            "haze" :
+                            {
+                                "value" : 0
                             }
                         }
                     ]
-                },
-                "airPollutants" : 
-                [
-                    {
-                        "pm25" : 
-                        {
-                            "value" : 0
-                        }
-                    },
-                    {
-                        "pm10" :
-                        {
-                            "value" : 0
-                        }
-                    },
-                    {
-                        "no2" :
-                        {
-                            "value" : no2
-                        }
-                    },
-                    {
-                        "co" :
-                        {
-                            "value" : co
-                        }
-                    },
-                    {
-                        "o3" :
-                        {
-                            "value" : o3
-                        }
-                    },
-                    {
-                        "so2" :
-                        {
-                            "value" : so2
-                        }
-                    },
-                    {
-                        "c6h6" :
-                        {
-                            "value" : c6h6
-                        }
-                    }
-                ],
-                "waterIndicators" :
-                [
-                    {
-                        "ph" : 
-                        {
-                            "value" : 5
-                        }
-                    },
-                    {
-                        "pb" : 
-                        {
-                            "value" : 0
-                        }
-                    },
-                    {
-                        "conductivity" : 
-                        {
-                            "value" : 0
-                        }
-                    },
-                    {
-                        "dissolvedOxygen" : 
-                        {
-                            "value" : 0
-                        }
-                    },
-                    {
-                        "temperature" :
-                        {
-                            "value" : 0
-                        }
-                    },
-                    {
-                        "cd" :
-                        {
-                            "value" : 0
-                        }
-                    },
-                    {
-                        "haze" :
-                        {
-                            "value" : 0
-                        }
-                    }
-                ]
-            }            
+                }            
 
-            console.log(JSON.stringify(JSONCiateq));
-            //console.log("verificando elementos sin enviar....");
-            //await enviarDatosRezagados();
-            await enviarDatosCIATEQ(JSONCiateq);
-            pm10 = 0;
-            pm25 = 0;
-            o3 = 0;
-            so2 = 0;
-            no2 = 0;
-            co = 0;
-            c6h6 = 0;
-            humedadRelativa = 0;
-            temperatura = 0;
+                console.log(JSON.stringify(JSONCiateq));
+                //console.log("verificando elementos sin enviar....");
+                //await enviarDatosRezagados();
+                await enviarDatosCIATEQ(JSONCiateq);
+                pm10 = 0;
+                pm25 = 0;
+                o3 = 0;
+                so2 = 0;
+                no2 = 0;
+                co = 0;
+                c6h6 = 0;
+                humedadRelativa = 0;
+                temperatura = 0;
+            }
         }
     }).catch((error)=>{
         console.log(`Error al interactuar con la información proporcionada del sensor: ${error}`);
@@ -246,7 +283,7 @@ async function obtenerDatos(id){
 
 async function enviarDatosRezagados(){
     if(elementosSinEnviar.length > 0){
-        var pausar = false;
+        var pausar = true;
         console.log(`Se encontraron ${elementosSinEnviar.length} elementos rezagados. Se intentarán enviar...`);
         while(elementosSinEnviar.length > 0 && pausar != false){
             datos = elementosSinEnviar.pop();
@@ -289,12 +326,12 @@ async function enviarDatosRezagados(){
 async function enviarDatosCIATEQ(datos){
     if(conToken == false){
         await axios.request(opcionesObtenerLlave).then(function (response) {
-            console.log("token obtenido: " + response.data.token);
+            console.log("token obtenido: " + response.data.msg.token);
             conToken = true;
-            token = response.data.token;
+            token = response.data.msg.token;
 
             let headersEnvioJSON = {
-                "token-sx": response.data.token,
+                "token-sx": response.data.msg.token,
                 "Content-Type": "application/json" 
             };
             
@@ -311,11 +348,13 @@ async function enviarDatosCIATEQ(datos){
                 }else{
                     console.log("Hubo un error al enviar la información. El JSON se guardará para enviarse despues. " + response.status)
                     elementosSinEnviar.push(datos);
+                    conToken = false;
                 } 
             }).catch(function (error) {
                 console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
                 console.log("Elemento a guardar: " + JSON.stringify(datos));
                 elementosSinEnviar.push(datos);
+                conToken = false;
             });
         }).catch(function (error) {
             console.log("Error obteniendo el token de conexion. El JSON se guardará para enviarse despues." + error);
@@ -341,10 +380,12 @@ async function enviarDatosCIATEQ(datos){
             }else{
                 console.log("Hubo un error al enviar la información. El JSON se guardará para enviarse despues. " + response.status)
                 elementosSinEnviar.push(datos);
+                conToken = false;
             } 
         }).catch(function (error) {
             console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
             elementosSinEnviar.push(datos);
+            conToken = false;
         });
     }  
 }
