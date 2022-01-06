@@ -1,1 +1,4 @@
 node_modules
+*.csv
+.tmp.drivedownload
+.tmp.driveupload

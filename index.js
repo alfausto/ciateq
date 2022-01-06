@@ -43,6 +43,22 @@ let sensores = [
         latitud: 20.5105806,
         longitud: -103.16968055555556,
         altitud: 1528
+    },
+    {
+        idSensor: 'eui-60c5a8fffe789d8a',
+        estacion: "CU Tonala",
+        idEstacion: 6,
+        latitud: 20.5666667,
+        longitud: -103.2286388888889,
+        altitud: 1544
+    },
+    {
+        idSensor: 'eui-60c5a8fffe789e1b',
+        estacion: "Hacienda Real (Tonalá)",
+        idEstacion: 7,
+        latitud: 20.5902778,
+        longitud: -103.23380555555556,
+        altitud: 1545
     }
 ]
 var elementosSinEnviar = [];
@@ -61,6 +77,33 @@ let opcionesObtenerLlave = {
     }
 }
 
+function guardarFila(fila){
+    console.log(`[${getFechaCIATEQ(new Date())}] Guardando Fila...`);
+    var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6 \n';
+    try{
+        var nombreArchivo = "DatosEstaciones_" + getFechaArchivo(new Date()) + ".csv"
+        if(fs.existsSync(nombreArchivo)){
+            console.log(`[${getFechaCIATEQ(new Date())}] El archivo ${nombreArchivo} existe.. se omite encabezado`);
+        }else{
+            console.log(`[${getFechaCIATEQ(new Date())}] El archivo ${nombreArchivo} no existe.. se crea y añade encabezado`);
+            fs.open(nombreArchivo, 'w', function(err, file){
+                if(err) throw err;
+            });
+            fs.appendFile(nombreArchivo, encabezados, function (err) {
+                if (err) throw err;
+            }); 
+        }
+        /*fs.open(nombreArchivo, 'w', function(err, file){
+            if(err) throw err;
+        });*/
+        fs.appendFile(nombreArchivo, fila, function (err) {
+            if (err) throw err;
+        }); 
+    }catch(err){
+        console.log(`[${getFechaCIATEQ(new Date())}] Error al guardar fila en archivo. ${err}`);
+    }
+}
+
 /**
  * Obtiene los valores de la ultima hora de cada elemento, genera el promedio y lo envía
  * @param {Identificador de los datos del sensor} id 
@@ -75,7 +118,7 @@ async function obtenerDatos(id){
         headers: headersList
     }).then(async (response)=>{
         if(response.data == ""){            
-            console.log("No hay datos disponibles por el momento...")
+            console.log(`[${getFechaCIATEQ(new Date())}] No hay datos disponibles por el momento...`);
         }else{
             var pm10 = 0; //Aun no se recibe
             var pm25 = 0; //Aun no se recibe
@@ -89,7 +132,7 @@ async function obtenerDatos(id){
             
             var datosCrudos = response.data;
             var datosSeparados = datosCrudos.split("\n");
-            console.log("Datos separados: " + datosSeparados.length);
+            //console.log("Datos separados: " + datosSeparados.length);
             //var fechaIni = new Date("2021-10-11T14:53:00Z"); //Test
             var fechaIni = new Date(); //Cambiar a fecha-hora del dia
             var fechaFin = new Date(); //cambiar a fecha hora del dia y quitar documentacion de sig linea
@@ -130,16 +173,16 @@ async function obtenerDatos(id){
                 humedadRelativa =0;
             }
 
-            console.log("so2: " + so2);
+            /*console.log("so2: " + so2);
             console.log("co: " + co);
             console.log("no2: " + no2);
             console.log("o3: " + o3);
             console.log("c6h6: " + c6h6);
             console.log("humedad Relativa: " + humedadRelativa);
-            console.log("temperatura: " + temperatura);
+            console.log("temperatura: " + temperatura);*/
 
             if(so2 == 0 && co == 0 && no2 == 0 && o3 == 0 && c6h6 == 0 && humedadRelativa == 0 && temperatura == 0){
-                console.log(`valores en 0 de la estacion ${id.estacion}. No se enviará nada`);
+                console.log(`[${getFechaCIATEQ(new Date())}] Valores en 0 de la estacion ${id.estacion}. No se enviará nada`);
             }else{
                 var idgroup = "" + id.idEstacion
                 var JSONCiateq = {
@@ -264,11 +307,14 @@ async function obtenerDatos(id){
 
                 //Añadiendo datos a CSV
                 var fila = `${id.estacion}, ${id.idEstacion}, ${datos.result.uplink_message.received_at}, ${temperatura}, ${humedadRelativa}, ${no2}, ${co}, ${o3}, ${so2}, ${c6h6} \n`
-                console.log("Fila: " + fila)
-                fs.appendFile('datos.csv', fila, function (err) {
+                //console.log("Fila: " + fila)
+                guardarFila(fila)
+                /*fs.appendFile('datos.csv', fila, function (err) {
                     if (err) throw err;
-                });
+                });*/
+                console.log(`[${getFechaCIATEQ(new Date())}] JSON por enviar *******`);
                 console.log(JSON.stringify(JSONCiateq));
+                console.log(`*******************************************************`);
 
                 //Envio de datos a CIATEQ
                 await enviarDatosCIATEQ(JSONCiateq);
@@ -285,17 +331,17 @@ async function obtenerDatos(id){
             //} //LlaveFor. Activar cuando sea envio masivo
         }
     }).catch((error)=>{
-        console.log(`Error al interactuar con la información proporcionada del sensor: ${error}`);
+        console.log(`[${getFechaCIATEQ(new Date())}] Error al interactuar con la información proporcionada del sensor. ${error}`);
     })
 }
 
 async function enviarDatosRezagados(){
     if(elementosSinEnviar.length > 0){
         var pausar = true;
-        console.log(`Se encontraron ${elementosSinEnviar.length} elementos rezagados. Se intentarán enviar...`);
+        console.log(`[${getFechaCIATEQ(new Date())}] Se encontraron ${elementosSinEnviar.length} elementos rezagados. Se intentarán enviar...`);
         while(elementosSinEnviar.length > 0 && pausar != false){
             datos = elementosSinEnviar.pop();
-            console.log("dato rezagado por enviar: " + JSON.stringify(datos));
+            //console.log("dato rezagado por enviar: " + JSON.stringify(datos));
             var contador = 1;
             if (token != "" || token != undefined){
                 let headersEnvioJSON = {
@@ -310,31 +356,31 @@ async function enviarDatosRezagados(){
                 };
                 await axios.request(opcionesEnvioJSON).then(function (response) {
                     if(response.status == 200){
-                        console.log(`Elemento ${contador} de ${elementosSinEnviar.length-1} enviado satisfactoriamente`);
+                        console.log(`[${getFechaCIATEQ(new Date())}] Elemento ${contador} de ${elementosSinEnviar.length-1} enviado satisfactoriamente`);
                         contador++;
                     }else{
-                        console.log("Hubo un error al enviar la información. El JSON se guardará para enviarse despues. " + response.status)
+                        console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información. El JSON se guardará para enviarse despues. ${response.status}`);
                         elementosSinEnviar.push(datos);
                         pausar = true;
                     } 
                 }).catch(function (error) {
-                    console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
+                    console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON. Se guardará para enviarse despues. ${error}`);
                     elementosSinEnviar.push(datos);
                     pausar = true;
                 });
             }else{
-                console.log("Aun no se cuenta con Token. Se buscará nuevo Token...")
+                console.log(`[${getFechaCIATEQ(new Date())}] Aun no se cuenta con Token. Se buscará nuevo Token...`);
             }
         }
     }else{
-        console.log("Sin datos rezagados...");
+        console.log(`[${getFechaCIATEQ(new Date())}] Sin datos rezagados...`);
     }
 }
 
 async function enviarDatosCIATEQ(datos){
     if(conToken == false){
         await axios.request(opcionesObtenerLlave).then(function (response) {
-            console.log("token obtenido: " + response.data.msg.token);
+            //console.log("token obtenido: " + response.data.msg.token);
             conToken = true;
             token = response.data.msg.token;
 
@@ -352,21 +398,22 @@ async function enviarDatosCIATEQ(datos){
             
             axios.request(opcionesEnvioJSON).then(function (response) {
                 if(response.status == 200){
-                    console.log("Elemento enviado satisfactoriamente");
+                    console.log(`[${getFechaCIATEQ(new Date())}] Elemento enviado satisfactoriamente...`);
                 }else{
-                    console.log("Hubo un error al enviar la información. El JSON se guardará para enviarse despues. " + response.status)
+                    console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información. El JSON se guardará para enviarse despues ${response.status}`);
                     elementosSinEnviar.push(datos);
                     conToken = false;
                 } 
             }).catch(function (error) {
-                console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
-                console.log("Elemento a guardar: " + JSON.stringify(datos));
+                console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON. Se guardará para enviarse despues. ${error}`);
+                //console.log("Elemento a guardar: " + JSON.stringify(datos));
                 elementosSinEnviar.push(datos);
                 conToken = false;
             });
         }).catch(function (error) {
             console.log("Error obteniendo el token de conexion. El JSON se guardará para enviarse despues." + error);
-            console.log("Elemento a guardar: " + JSON.stringify(datos));
+            console.log(`[${getFechaCIATEQ(new Date())}] Error obteniendo el token de conexion. El JSON se guardará para enviarse despues. ${error}`);
+            //console.log("Elemento a guardar: " + JSON.stringify(datos));
             elementosSinEnviar.push(datos);
             conToken = false;
         });
@@ -384,14 +431,15 @@ async function enviarDatosCIATEQ(datos){
         
         await axios.request(opcionesEnvioJSON).then(function (response) {
             if(response.status == 200){
-                console.log("Elemento enviado satisfactoriamente");
+                console.log(`[${getFechaCIATEQ(new Date())}] Elemento enviado satisfactoriamente`);
             }else{
-                console.log("Hubo un error al enviar la información. El JSON se guardará para enviarse despues. " + response.status)
+                console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información. El JSON se guardará para enviarse despues. ${response.status}`);
                 elementosSinEnviar.push(datos);
                 conToken = false;
             } 
         }).catch(function (error) {
             console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
+            console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON. Se guardará para enviarse depues. ${error}`);
             elementosSinEnviar.push(datos);
             conToken = false;
         });
@@ -432,15 +480,19 @@ function getFechaCIATEQ (d) {
     return d.getFullYear() + "-" + getFormatoMes(getMes(d)) + "-" + getFormatoDia(d) + " " + getFormatoHora(d.getHours()) + ":" + getFormatoHora(d.getMinutes()) + ":" + getFormatoHora(d.getSeconds());
 }
 
+function getFechaArchivo(d) {
+    return d.getFullYear() + getFormatoMes(getMes(d)) + getFormatoDia(d);
+}
+
 async function main () {
-    var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6 \n';
+    /*var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6 \n';
     try{
         if(fs.existsSync('datos.csv')){
-            console.log("El archivo existe.. se omite encabezado");
+            console.log("El archivo existe.. se omite encabezado");*/
             /*fs.open('datos.csv', 'w', function(err, file){
                 if(err) throw err;
             });*/
-        }else{
+        /*}else{
             console.log("El archivo no existe... se crea y añade encabezado")
             fs.open('datos.csv', 'w', function(err, file){
                 if(err) throw err;
@@ -451,12 +503,12 @@ async function main () {
         }
     }catch(err){
         console.log("Error al revisar existencia de archivo. " + err)
-    }
+    }*/
     setInterval(async()=> {
-        console.log("verificando elementos sin enviar....");
+        console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
         await enviarDatosRezagados();
         for(var i=0; i<sensores.length; i++){
-            console.log("Revisando: " + sensores[i].idSensor);
+            console.log(`[${getFechaCIATEQ(new Date())}] Revisando: ${sensores[i].idSensor}`);
             await obtenerDatos(sensores[i]);
         }
         console.log("---------------------------------------------------------------------");
