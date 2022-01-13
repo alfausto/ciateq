@@ -59,6 +59,14 @@ let sensores = [
         latitud: 20.5902778,
         longitud: -103.23380555555556,
         altitud: 1545
+    },
+    {
+        idSensor: 'eui-60c5a8fffe789b50',
+        estacion: "Dirección Gestión Ambiental y Cambio Climático Tonalá",
+        idEstacion: 10,
+        latitud: 20.625579,
+        longitud: -103.250854,
+        altitud: 1662
     }
 ]
 var elementosSinEnviar = [];
