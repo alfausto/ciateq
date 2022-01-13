@@ -79,7 +79,7 @@ let opcionesObtenerLlave = {
 
 function guardarFila(fila){
     console.log(`[${getFechaCIATEQ(new Date())}] Guardando Fila...`);
-    var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6 \n';
+    var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6, pm10, pm25 \n';
     try{
         var nombreArchivo = "DatosEstaciones_" + getFechaArchivo(new Date()) + ".csv"
         if(fs.existsSync(nombreArchivo)){
@@ -120,8 +120,8 @@ async function obtenerDatos(id){
         if(response.data == ""){            
             console.log(`[${getFechaCIATEQ(new Date())}] No hay datos disponibles por el momento...`);
         }else{
-            var pm10 = 0; //Aun no se recibe
-            var pm25 = 0; //Aun no se recibe
+            var pm10 = 0;
+            var pm25 = 0;
             var o3 = 0;
             var so2 = 0;
             var no2 = 0;
@@ -156,8 +156,10 @@ async function obtenerDatos(id){
                         no2 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.z);
                         o3 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.x);
                         c6h6 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.y);
-                        humedadRelativa = parseFloat(datos.result.uplink_message.decoded_payload.relative_humidity_3);
-                        temperatura = parseFloat(datos.result.uplink_message.decoded_payload.temperature_4);
+                        pm10 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_3.y);
+                        pm25 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_3.x);
+                        humedadRelativa = parseFloat(datos.result.uplink_message.decoded_payload.relative_humidity_4);
+                        temperatura = parseFloat(datos.result.uplink_message.decoded_payload.temperature_5);
                         break; //Desactivar break para envio masivo
                     }
                 }catch(error){
@@ -218,13 +220,13 @@ async function obtenerDatos(id){
                         {
                             "pm25" : 
                             {
-                                "value" : 0
+                                "value" : pm25
                             }
                         },
                         {
                             "pm10" :
                             {
-                                "value" : 0
+                                "value" : pm10
                             }
                         },
                         {
@@ -306,7 +308,7 @@ async function obtenerDatos(id){
                 }            
 
                 //Añadiendo datos a CSV
-                var fila = `${id.estacion}, ${id.idEstacion}, ${datos.result.uplink_message.received_at}, ${temperatura}, ${humedadRelativa}, ${no2}, ${co}, ${o3}, ${so2}, ${c6h6} \n`
+                var fila = `${id.estacion}, ${id.idEstacion}, ${datos.result.uplink_message.received_at}, ${temperatura}, ${humedadRelativa}, ${no2}, ${co}, ${o3}, ${so2}, ${c6h6}, ${pm10}, ${pm25} \n`
                 //console.log("Fila: " + fila)
                 guardarFila(fila)
                 /*fs.appendFile('datos.csv', fila, function (err) {
