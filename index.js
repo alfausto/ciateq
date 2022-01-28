@@ -159,13 +159,13 @@ async function obtenerDatos(id){
                     //console.log("Fecha convertida: " + fecha);
                     
                     if(fecha >= fechaIni && fecha <= fechaFin){ //Desactivar condicion para envio masivo
-                        so2 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.x);
-                        co = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.y);
-                        no2 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.z);
-                        o3 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.x);
-                        c6h6 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.y);
-                        pm10 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_3.y);
-                        pm25 = parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_3.x);
+                        so2 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.x));
+                        co = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.y));
+                        no2 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.z));
+                        o3 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.x));
+                        c6h6 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.y));
+                        pm10 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_3.y));
+                        pm25 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_3.x));
                         humedadRelativa = parseFloat(datos.result.uplink_message.decoded_payload.relative_humidity_4);
                         temperatura = parseFloat(datos.result.uplink_message.decoded_payload.temperature_5);
                         break; //Desactivar break para envio masivo
