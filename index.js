@@ -1,8 +1,8 @@
 var fs = require('fs');
 const axios = require('axios').default;
-//const intervaloProceso = 3600000; //1 Hora
 const intervaloProceso = 60000; //1 min
-//const intervaloProceso = 1000; //1 seg
+
+//Lista de sensores registrados
 let sensores = [
     {
         idSensor: 'eui-60c5a8fffe78a270',
@@ -13,15 +13,15 @@ let sensores = [
         altitud: 1608
     },
     {
-        idSensor: 'eui-60c5a8fffe789e39',
-        estacion: "Estación de Bomberos El Salto",
+        idSensor: 'eui-60c5abfffe789db4',
+        estacion: "Estación de Bomberos El Salto",   
         idEstacion: 2,
         latitud: 20.5133528,
         longitud: -103.237711,
         altitud: 1549
     },
     {
-        idSensor: 'eui-60c5abfffe789db4',
+        idSensor: 'eui-60c5a8fffe789e39',
         estacion: "Tienda de Abarrotes Santa Maria Tequepexpan",
         idEstacion: 3,
         latitud: 20.5966889,
@@ -61,6 +61,22 @@ let sensores = [
         altitud: 1545
     },
     {
+        idSensor: 'eui-60c5a8fffe789e7f',
+        estacion: "Instituto de la mujer (Las Pintas)",
+        idEstacion: 8,
+        latitud: 20.57690278,
+        longitud: -103.32652778,
+        altitud: 1000
+    },
+    {
+        idSensor: 'eui-60c5a8fffe78a26c',
+        estacion: "Lico Cortina (Tlaquepaque)",
+        idEstacion: 9,
+        latitud: 20.59263333,
+        longitud: -103.26768611,
+        altitud: 1545
+    },
+    {
         idSensor: 'eui-60c5a8fffe789b50',
         estacion: "Dirección Gestión Ambiental y Cambio Climático Tonalá",
         idEstacion: 10,
@@ -69,22 +85,49 @@ let sensores = [
         altitud: 1662
     }
 ]
+
 var elementosSinEnviar = [];
-var token = "";
-var conToken = false;
 
-let opcionesObtenerLlave = {
-    url: "http://semadet.ciateq.net.mx:8080/semadet/api/seguridad/autenticar",
-    method: "POST",
-    headers: {
-        "Content-Type": "application/json"
+//Elementos de configuracion para envio de informacion a diferentes servidores
+var configuracionEndpoints = [
+    {
+        nombre: "SEMADET",
+        conToken: false,
+        token: "",
+        endpointEnvio: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
+        opcionesObtenerLlave: {
+            url: "http://semadet.ciateq.net.mx:8080/semadet/api/seguridad/autenticar",
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            data: {
+                usuario: "$uSuario_embed20$$",
+                contrasena: "$cCOnTr0294_·M#",
+            }
+        },
     },
-    data: {
-        usuario: "$uSuario_embed20$$",
-        contrasena: "$cCOnTr0294_·M#",
-    }
-}
+    {
+        nombre: "SIMAAS",
+        conToken: false,
+        token: "",
+        endpointEnvio: "http://simaas.jalisco.gob.mx:8081/semadet/api/mediciones",
+        opcionesObtenerLlave: {
+            url: "http://simaas.jalisco.gob.mx:8081/semadet/api/seguridad/autenticar",
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            data: {
+                usuario: "$uSuario_embed20$$",
+                contrasena: "$cCOnTr0294_·M#",
+            }
+        }
 
+    },
+]
+
+//Guarda la información enviada en un archivo CSV
 function guardarFila(fila){
     console.log(`[${getFechaCIATEQ(new Date())}] Guardando Fila...`);
     var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6, pm10, pm25 \n';
@@ -140,8 +183,7 @@ async function obtenerDatos(id){
             
             var datosCrudos = response.data;
             var datosSeparados = datosCrudos.split("\n");
-            //console.log("Datos separados: " + datosSeparados.length);
-            //var fechaIni = new Date("2021-10-11T14:53:00Z"); //Test
+
             var fechaIni = new Date(); //Cambiar a fecha-hora del dia
             var fechaFin = new Date(); //cambiar a fecha hora del dia y quitar documentacion de sig linea
             fechaFin = fechaFin.setHours(fechaFin.getHours() + 1);
@@ -317,11 +359,8 @@ async function obtenerDatos(id){
 
                 //Añadiendo datos a CSV
                 var fila = `${id.estacion}, ${id.idEstacion}, ${datos.result.uplink_message.received_at}, ${temperatura}, ${humedadRelativa}, ${no2}, ${co}, ${o3}, ${so2}, ${c6h6}, ${pm10}, ${pm25} \n`
-                //console.log("Fila: " + fila)
-                guardarFila(fila)
-                /*fs.appendFile('datos.csv', fila, function (err) {
-                    if (err) throw err;
-                });*/
+
+                guardarFila(fila) //desactivar en caso de no querer guardar archivo CSV
                 console.log(`[${getFechaCIATEQ(new Date())}] JSON por enviar *******`);
                 console.log(JSON.stringify(JSONCiateq));
                 console.log(`*******************************************************`);
@@ -345,41 +384,44 @@ async function obtenerDatos(id){
     })
 }
 
+//Cada corrida buscará datos rezagados en caso de que no se hayan podido enviar por alguna razon...
 async function enviarDatosRezagados(){
     if(elementosSinEnviar.length > 0){
-        var pausar = true;
+        var pausar = false
         console.log(`[${getFechaCIATEQ(new Date())}] Se encontraron ${elementosSinEnviar.length} elementos rezagados. Se intentarán enviar...`);
         while(elementosSinEnviar.length > 0 && pausar != false){
             datos = elementosSinEnviar.pop();
             //console.log("dato rezagado por enviar: " + JSON.stringify(datos));
             var contador = 1;
-            if (token != "" || token != undefined){
-                let headersEnvioJSON = {
-                    "token-sx": token,
-                    "Content-Type": "application/json" 
-                };
-                let opcionesEnvioJSON = {
-                    url: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
-                    method: "PUT",
-                    headers: headersEnvioJSON,
-                    data: datos
-                };
-                await axios.request(opcionesEnvioJSON).then(function (response) {
-                    if(response.status == 200){
-                        console.log(`[${getFechaCIATEQ(new Date())}] Elemento ${contador} de ${elementosSinEnviar.length-1} enviado satisfactoriamente`);
-                        contador++;
-                    }else{
-                        console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información. El JSON se guardará para enviarse despues. ${response.status}`);
+            for(let i=0; i<configuracionEndpoints.length; i++){
+                if (configuracionEndpoints[i].token != "" || configuracionEndpoints[i].token != undefined){
+                    let headersEnvioJSON = {
+                        "token-sx": configuracionEndpoints[i].token,
+                        "Content-Type": "application/json" 
+                    };
+                    let opcionesEnvioJSON = {
+                        url: configuracionEndpoints[i].endpointEnvio,
+                        method: "PUT",
+                        headers: headersEnvioJSON,
+                        data: datos
+                    };
+                    await axios.request(opcionesEnvioJSON).then(function (response) {
+                        if(response.status == 200){
+                            console.log(`[${getFechaCIATEQ(new Date())}] Elemento ${contador} de ${elementosSinEnviar.length-1} enviado satisfactoriamente`);
+                            //contador++;
+                        }else{
+                            console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar informacion rezagada al servidor ${configuracionEndpoints[i].nombre}. El JSON se guardará para enviarse despues. ${response.status}`);
+                            elementosSinEnviar.push(datos);
+                            pausar = true;
+                        } 
+                    }).catch(function (error) {
+                        console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON al servidor ${configuracionEndpoints[i].nombre}. Se guardará para enviarse despues. ${error}`);
                         elementosSinEnviar.push(datos);
                         pausar = true;
-                    } 
-                }).catch(function (error) {
-                    console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON. Se guardará para enviarse despues. ${error}`);
-                    elementosSinEnviar.push(datos);
-                    pausar = true;
-                });
-            }else{
-                console.log(`[${getFechaCIATEQ(new Date())}] Aun no se cuenta con Token. Se buscará nuevo Token...`);
+                    });
+                }else{
+                    console.log(`[${getFechaCIATEQ(new Date())}] No se encontró un token en uno o mas servidores. Se buscará nuevo Token...`);
+                }
             }
         }
     }else{
@@ -387,72 +429,73 @@ async function enviarDatosRezagados(){
     }
 }
 
+//Envía los datos a los endpoints guardados en el JSON de configuracionEndpoints
 async function enviarDatosCIATEQ(datos){
-    if(conToken == false){
-        await axios.request(opcionesObtenerLlave).then(function (response) {
-            //console.log("token obtenido: " + response.data.msg.token);
-            conToken = true;
-            token = response.data.msg.token;
-
+    for(let i=0; i<configuracionEndpoints.length; i++){
+        if(configuracionEndpoints[i].conToken == false){
+            await axios.request(configuracionEndpoints[i].opcionesObtenerLlave).then(function (response) {
+                configuracionEndpoints[i].conToken = true;
+                configuracionEndpoints[i].token = response.data.msg.token;
+    
+                let headersEnvioJSON = {
+                    "token-sx": response.data.msg.token,
+                    "Content-Type": "application/json" 
+                };
+                
+                let opcionesEnvioJSON = {
+                    url: configuracionEndpoints[i].endpointEnvio,
+                    method: "PUT",
+                    headers: headersEnvioJSON,
+                    data: datos
+                };  
+                
+                axios.request(opcionesEnvioJSON).then(function (response) {
+                    if(response.status == 200){
+                        console.log(`[${getFechaCIATEQ(new Date())}] Elemento enviado satisfactoriamente al servidor ${configuracionEndpoints[i].nombre}`);
+                    }else{
+                        console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información al servidor ${configuracionEndpoints[i].nombre}. El JSON se guardará para enviarse despues ${response.status}`);
+                        elementosSinEnviar.push(datos);
+                        configuracionEndpoints[i].conToken = false;
+                    } 
+                }).catch(function (error) {
+                    console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON al servidor ${configuracionEndpoints[i].nombre}. Se guardará para enviarse despues. ${error}`);
+                    //console.log("Elemento a guardar: " + JSON.stringify(datos));
+                    elementosSinEnviar.push(datos);
+                    configuracionEndpoints[i].conToken = false;
+                });
+            }).catch(function (error) {
+                console.log(`[${getFechaCIATEQ(new Date())}] Error obteniendo el token de conexion para el servidor ${configuracionEndpoints[i].nombre}. El JSON se guardará para enviarse despues. ${error}`);
+                //console.log("Elemento a guardar: " + JSON.stringify(datos));
+                elementosSinEnviar.push(datos);
+                configuracionEndpoints[i].conToken = false;
+            });
+        }else{
             let headersEnvioJSON = {
-                "token-sx": response.data.msg.token,
+                "token-sx": configuracionEndpoints[i].token,
                 "Content-Type": "application/json" 
             };
-            
             let opcionesEnvioJSON = {
-                url: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
+                url: configuracionEndpoints[i].endpointEnvio,
                 method: "PUT",
                 headers: headersEnvioJSON,
                 data: datos
-            };  
+            };
             
-            axios.request(opcionesEnvioJSON).then(function (response) {
+            await axios.request(opcionesEnvioJSON).then(function (response) {
                 if(response.status == 200){
-                    console.log(`[${getFechaCIATEQ(new Date())}] Elemento enviado satisfactoriamente...`);
+                    console.log(`[${getFechaCIATEQ(new Date())}] Elemento enviado satisfactoriamente al servidor ${configuracionEndpoints[i].nombre}`);
                 }else{
-                    console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información. El JSON se guardará para enviarse despues ${response.status}`);
+                    console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información al servidor ${configuracionEndpoints[i]}. El JSON se guardará para enviarse despues. ${response.status}`);
                     elementosSinEnviar.push(datos);
-                    conToken = false;
+                    configuracionEndpoints[i].conToken = false;
                 } 
             }).catch(function (error) {
-                console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON. Se guardará para enviarse despues. ${error}`);
-                //console.log("Elemento a guardar: " + JSON.stringify(datos));
+                //console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
+                console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON al servidor ${configuracionEndpoints[i]}. Se guardará para enviarse depues. ${error}`);
                 elementosSinEnviar.push(datos);
-                conToken = false;
+                configuracionEndpoints[i].conToken = false;
             });
-        }).catch(function (error) {
-            console.log("Error obteniendo el token de conexion. El JSON se guardará para enviarse despues." + error);
-            console.log(`[${getFechaCIATEQ(new Date())}] Error obteniendo el token de conexion. El JSON se guardará para enviarse despues. ${error}`);
-            //console.log("Elemento a guardar: " + JSON.stringify(datos));
-            elementosSinEnviar.push(datos);
-            conToken = false;
-        });
-    }else{
-        let headersEnvioJSON = {
-            "token-sx": token,
-            "Content-Type": "application/json" 
-        };
-        let opcionesEnvioJSON = {
-            url: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
-            method: "PUT",
-            headers: headersEnvioJSON,
-            data: datos
-        };
-        
-        await axios.request(opcionesEnvioJSON).then(function (response) {
-            if(response.status == 200){
-                console.log(`[${getFechaCIATEQ(new Date())}] Elemento enviado satisfactoriamente`);
-            }else{
-                console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información. El JSON se guardará para enviarse despues. ${response.status}`);
-                elementosSinEnviar.push(datos);
-                conToken = false;
-            } 
-        }).catch(function (error) {
-            console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
-            console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON. Se guardará para enviarse depues. ${error}`);
-            elementosSinEnviar.push(datos);
-            conToken = false;
-        });
+        }
     }  
 }
 
@@ -495,25 +538,6 @@ function getFechaArchivo(d) {
 }
 
 async function main () {
-    /*var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6 \n';
-    try{
-        if(fs.existsSync('datos.csv')){
-            console.log("El archivo existe.. se omite encabezado");*/
-            /*fs.open('datos.csv', 'w', function(err, file){
-                if(err) throw err;
-            });*/
-        /*}else{
-            console.log("El archivo no existe... se crea y añade encabezado")
-            fs.open('datos.csv', 'w', function(err, file){
-                if(err) throw err;
-            });
-            fs.appendFile('datos.csv', encabezados, function (err) {
-                if (err) throw err;
-            }); 
-        }
-    }catch(err){
-        console.log("Error al revisar existencia de archivo. " + err)
-    }*/
     setInterval(async()=> {
         console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
         await enviarDatosRezagados();
