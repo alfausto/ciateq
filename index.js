@@ -3,7 +3,6 @@
  */
 
 const { estaciones } = require('./estaciones');
-const { configuracionEndpoints } = require('./endpoints');
 const fs = require('fs');
 const axios = require('axios').default;
 const intervaloProceso = 60000; //1 min
@@ -37,6 +36,42 @@ let jsonCIATEQDefault = {
     }
 };
 
+let configuracionEndpoints = [
+    {
+        nombre: "SEMADET",
+        token: null,
+        endpointEnvio: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
+        opcionesObtenerLlave: {
+            url: "http://semadet.ciateq.net.mx:8080/semadet/api/seguridad/autenticar",
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            data: {
+                usuario: "$uSuario_embed20$$",
+                contrasena: "$cCOnTr0294_·M#",
+            }
+        },
+    },
+    {
+        nombre: "SIMAAS",
+        token: null,
+        endpointEnvio: "http://simaas.jalisco.gob.mx:8081/semadet/api/mediciones",
+        opcionesObtenerLlave: {
+            url: "http://simaas.jalisco.gob.mx:8081/semadet/api/seguridad/autenticar",
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            data: {
+                usuario: "$uSuario_embed20$$",
+                contrasena: "$cCOnTr0294_·M#",
+            }
+        }
+
+    },
+]
+
 //Encabezado para peticion en API de TTN
 const headers = {
     headers: {
@@ -54,6 +89,7 @@ const headers = {
 function getFechaHoraActual(){
     return `${new Date(Date.now()).toLocaleDateString('es-MX')}`;
 }
+
 function guardarFila(fila){
     var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6, pm10, pm25 \n';
     try{
@@ -80,7 +116,7 @@ function guardarFila(fila){
 /**
  * Obtiene los valores de la ultima medición de cada elemento, genera el promedio y lo envía
  * 
- * @param {Objeto con lista de estaciones} estacion 
+ * @param {Objeto con valores de una estacion obtenida del archivo de estaciones.js} estacion 
  */
 async function obtenerDatos(estacion){
 
@@ -109,11 +145,11 @@ async function obtenerDatos(estacion){
                     let fechaElemento = new Date(jsonDatoEstacion.result.uplink_message.received_at);
                                         
                     //Guardando valor
-                    console.log(`fecha ini: ${fechaIni}`);
-                    console.log(`fecha fin: ${fechaFin}`);
-                    console.log(`fecha elemento: ${fechaElemento}`);
+                    //console.log(`fecha ini: ${fechaIni}`);
+                    //console.log(`fecha fin: ${fechaFin}`);
+                    //console.log(`fecha elemento: ${fechaElemento}`);
                     
-                    //if(fechaElemento.getTime() >= fechaIni.getTime() && fechaElemento.getTime() <= fechaFin.getTime()){ 
+                    if(fechaElemento.getTime() >= fechaIni.getTime() && fechaElemento.getTime() <= fechaFin.getTime()){ 
 
                         console.log(`Encontré elemento. Revisando si es sensor de aire o de agua`);
                         tmp.fecha = new Date(fechaElemento.getTime());
@@ -137,6 +173,17 @@ async function obtenerDatos(estacion){
                             if(isNaN(tmp.valoresAire.humedadRelativa)){
                                 humedadRelativa = 0;
                             }
+
+                            if(tmp.valoresAire.so2 == 0 && tmp.valoresAire.co == 0 && tmp.valoresAire.no2 == 0 && tmp.valoresAire.o3 == 0 && tmp.valoresAire.c6h6 == 0 && 
+                                tmp.valoresAire.pm10 == 0 && tmp.valoresAire.pm25 == 0 && tmp.valoresAire.humedadRelativa == 0 && tmp.valoresAire.temperatura == 0){
+                                console.log(`[${getFechaHoraActual()}] Valores en 0 de la estacion ${estacion.nombre}. No se enviará nada`);
+                                break;
+                            }else{
+                                console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
+                                console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
+                                //await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
+                                break;
+                            }
                         }else{ //Guardando valores de agua
                             console.log("Sensor de agua");
                             tmp.valoresAgua.ph = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_1);
@@ -146,22 +193,26 @@ async function obtenerDatos(estacion){
                             tmp.valoresAgua.cd = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_5);
                             tmp.valoresAgua.turbidez = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_6);
                             tmp.valoresAgua.temperatura = parseFloat(datoEstacion.result.uplink_message.decoded_payload.temperature_7);
+
+                            if(tmp.valoresAgua.ph == 0 && tmp.valoresAgua.conductividad == 0 && tmp.valoresAgua.oxiDisuelto == 0 && tmp.valoresAgua.pb == 0 && tmp.valoresAgua.cd == 0 && 
+                                tmp.valoresAgua.turbidez == 0 && tmp.valoresAgua.temperatura == 0){
+                                console.log(`[${getFechaHoraActual()}] Valores en 0 de la estacion ${estacion.nombre}. No se enviará nada`);
+                                break;
+                            }else{
+                                console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
+                                console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
+                                //await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
+                                break;
+                            }
                         }
-
-                        console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
-                        console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
-                        //await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
-
-                        break;
-                    //}
+                    }
                 }catch(error){
-                    //console.log(`Error  al guardar información de un dato de estacion. ${error}`);
-                    //console.log("Buscando nuevos valores...");
+                    //Lanzado normalmente por JSON CON FORMATO INVALIDO. SE OMITE Y BUSCA SIGUIENTE.
                 }
             }
         }
     }else{
-        console.log("Error al obtener información de los sensores.");
+        console.log(`Error intentando obtener información de la estacion ${estacion.nombre}. Se intentará de nuevo en la siguiente corrida...`);
     }
 }
 
@@ -293,42 +344,43 @@ function getJSON_CIATEQ(valores, estacion){
  */
 async function enviarDatosRezagados(){
     if(elementosSinEnviar.length > 0){
-        var pausarRezagados = false
-        contadorRezagados = 0;
-        console.log(`[${getFechaCIATEQ(new Date())}] Se encontraron ${elementosSinEnviar.length} elementos rezagados. Se intentarán enviar...`);
-        while(elementosSinEnviar.length > 0 && pausar != false){
-            datos = elementosSinEnviar.pop();
+        let hayTokens = true;
+        contadorRezagados = 1;
+
+        console.log(`[${getFechaHoraActual()}] Se encontraron ${elementosSinEnviar.length} elementos rezagados. Se intentarán enviar...`);
+        
+        for(let t of configuracionEndpoints){
+            hayTokens = hayTokens && (t.token != null);
+        }
+
+        if(hayTokens){
+            while(elementosSinEnviar.length > 0){
+                let jsonSinEnviar = elementosSinEnviar.pop();
             
-            for(let i=0; i<configuracionEndpoints.length; i++){
-                if (configuracionEndpoints[i].token != "" || configuracionEndpoints[i].token != undefined){
+                for(let servidor of configuracionEndpoints){
                     let headersEnvioJSON = {
-                        "token-sx": configuracionEndpoints[i].token,
+                        "token-sx": servidor.token,
                         "Content-Type": "application/json" 
                     };
                     let opcionesEnvioJSON = {
-                        url: configuracionEndpoints[i].endpointEnvio,
+                        url: servidor.endpointEnvio,
                         method: "PUT",
                         headers: headersEnvioJSON,
-                        data: datos
+                        data: jsonSinEnviar
                     };
-                    await axios.request(opcionesEnvioJSON).then(function (response) {
-                        if(response.status == 200){
-                            console.log(`[${getFechaCIATEQ(new Date())}] Elemento ${contadorRezagados} de ${elementosSinEnviar.length-1} enviado satisfactoriamente`);
-                            contadorRezagados++;
-                        }else{
-                            console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar informacion rezagada al servidor ${configuracionEndpoints[i].nombre}. El JSON se guardará para enviarse despues. ${response.status}`);
-                            elementosSinEnviar.push(datos);
-                            pausarRezagados = true;
-                        } 
-                    }).catch(function (error) {
-                        console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON al servidor ${configuracionEndpoints[i].nombre}. Se guardará para enviarse despues. ${error}`);
+                    let resEnvio = await axios.request(opcionesEnvioJSON);
+                    if(resEnvio.status == 200){
+                        console.log(`[${getFechaHoraActual()}] Elemento ${contadorRezagados} de ${elementosSinEnviar.length} enviado satisfactoriamente`);
+                        contadorRezagados++;
+                    }else{
+                        console.log(`[${getFechaHoraActual()}] Hubo un error al enviar informacion rezagada al servidor ${servidor.nombre}. El JSON se guardará para enviarse despues.`);
                         elementosSinEnviar.push(datos);
-                        pausarRezagados = true;
-                    });
-                }else{
-                    console.log(`[${getFechaCIATEQ(new Date())}] No se encontró un token en uno o mas servidores. Se buscará nuevo Token...`);
+                        break;
+                    }
                 }
             }
+        }else{
+            console.log(`[${getFechaHoraActual()}] Uno o mas tokens de los servidores registrados no se encuentra disponible. Se intentarán enviar los elementos en la proxima corrida...`);
         }
     }else{
         console.log(`[${getFechaCIATEQ(new Date())}] Sin datos rezagados...`);
@@ -341,70 +393,68 @@ async function enviarDatosRezagados(){
  * @param {objeto con informacion} datos información que se enviará a los servidores configurados 
  */
 async function enviarDatosCIATEQ(datos){
-    for(let i=0; i<configuracionEndpoints.length; i++){
-        if(configuracionEndpoints[i].conToken == false){
-            await axios.request(configuracionEndpoints[i].opcionesObtenerLlave).then(function (response) {
-                configuracionEndpoints[i].conToken = true;
-                configuracionEndpoints[i].token = response.data.msg.token;
-    
+    try{
+        for(let endpoint of configuracionEndpoints){
+            if(endpoint.token == null){
+                let resKey = await axios.request(endpoint.opcionesObtenerLlave);
+                if(resKey.status == 200){
+                    endpoint.token = resKey.data.msg.token;
+        
+                    let headersEnvioJSON = {
+                        "token-sx": endpoint.token,
+                        "Content-Type": "application/json" 
+                    };
+                    
+                    let opcionesEnvioJSON = {
+                        url: endpoint.endpointEnvio,
+                        method: "PUT",
+                        headers: headersEnvioJSON,
+                        data: datos
+                    };  
+                    
+                    let resEnvio = await axios.request(opcionesEnvioJSON);
+                    if(resEnvio.status == 200){
+                        console.log(`[${getFechaHoraActual()}] Elemento enviado satisfactoriamente al servidor ${endpoint.nombre}`);
+                    }else{
+                        console.log(`[${getFechaHoraActual()}] Hubo un error al enviar la información al servidor ${endpoint.nombre}. El JSON se guardará para enviarse despues.`);
+                        elementosSinEnviar.push(datos);
+                        endpoint.token = null;
+                    }
+                }else{
+                    console.log(`[${getFechaHoraActual()}] Hubo un error al obtener la llave del servidor ${endpoint.nombre}. El JSON se guardará para enviarse despues.`);
+                    elementosSinEnviar.push(datos);
+                    endpoint.token = null;
+                }
+            
+            //Con Llave guardada en JSON
+            }else{
                 let headersEnvioJSON = {
-                    "token-sx": response.data.msg.token,
+                    "token-sx": endpoint.token,
                     "Content-Type": "application/json" 
                 };
-                
                 let opcionesEnvioJSON = {
-                    url: configuracionEndpoints[i].endpointEnvio,
+                    url: endpoint.endpointEnvio,
                     method: "PUT",
                     headers: headersEnvioJSON,
                     data: datos
-                };  
+                };
                 
-                axios.request(opcionesEnvioJSON).then(function (response) {
-                    if(response.status == 200){
-                        console.log(`[${getFechaCIATEQ(new Date())}] Elemento enviado satisfactoriamente al servidor ${configuracionEndpoints[i].nombre}`);
-                    }else{
-                        console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información al servidor ${configuracionEndpoints[i].nombre}. El JSON se guardará para enviarse despues ${response.status}`);
-                        elementosSinEnviar.push(datos);
-                        configuracionEndpoints[i].conToken = false;
-                    } 
-                }).catch(function (error) {
-                    console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON al servidor ${configuracionEndpoints[i].nombre}. Se guardará para enviarse despues. ${error}`);
-                    elementosSinEnviar.push(datos);
-                    configuracionEndpoints[i].conToken = false;
-                });
-            }).catch(function (error) {
-                console.log(`[${getFechaCIATEQ(new Date())}] Error obteniendo el token de conexion para el servidor ${configuracionEndpoints[i].nombre}. El JSON se guardará para enviarse despues. ${error}`);
-                elementosSinEnviar.push(datos);
-                configuracionEndpoints[i].conToken = false;
-            });
-        }else{
-            let headersEnvioJSON = {
-                "token-sx": configuracionEndpoints[i].token,
-                "Content-Type": "application/json" 
-            };
-            let opcionesEnvioJSON = {
-                url: configuracionEndpoints[i].endpointEnvio,
-                method: "PUT",
-                headers: headersEnvioJSON,
-                data: datos
-            };
-            
-            await axios.request(opcionesEnvioJSON).then(function (response) {
-                if(response.status == 200){
-                    console.log(`[${getFechaCIATEQ(new Date())}] Elemento enviado satisfactoriamente al servidor ${configuracionEndpoints[i].nombre}`);
+                let resEnvio = await axios.request(opcionesEnvioJSON);
+                if(resEnvio.status == 200){
+                    console.log(`[${getFechaHoraActual()}] Elemento enviado satisfactoriamente al servidor ${endpoint.nombre}`);
                 }else{
-                    console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar la información al servidor ${configuracionEndpoints[i]}. El JSON se guardará para enviarse despues. ${response.status}`);
+                    console.log(`[${getFechaHoraActual()}] Hubo un error al enviar la información al servidor ${endpoint.nombre}. El JSON se guardará para enviarse despues.`);
                     elementosSinEnviar.push(datos);
-                    configuracionEndpoints[i].conToken = false;
-                } 
-            }).catch(function (error) {
-                //console.log("Error subiendo el JSON. Se guardará para enviarse despues. " + error);
-                console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON al servidor ${configuracionEndpoints[i]}. Se guardará para enviarse depues. ${error}`);
-                elementosSinEnviar.push(datos);
-                configuracionEndpoints[i].conToken = false;
-            });
+                    endpoint.token = null;
+                }
+            }
         }
-    }  
+    }catch(err){
+        console.log(`Error general el enviar datos a servidores preestablecidos. ${err}`);
+        elementosSinEnviar.push(datos);
+        endpoint.token = null;
+    }
+    
 }
 
 function getMes (dmes) {
@@ -444,15 +494,15 @@ function getFechaArchivo(d) {
 }
 
 async function main () {
-    //setInterval(async()=> {
-        //console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
-        //await enviarDatosRezagados();
+    setInterval(async()=> {
+        console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
+        await enviarDatosRezagados();
         
         for(let estacion of estaciones){
             console.log(`[${getFechaHoraActual()}] Revisando: ${estacion.idSensor}`);
             await obtenerDatos(estacion);
         }
-    //}, intervaloProceso);
+    }, intervaloProceso);
 }
 
 main();
