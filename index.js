@@ -1,135 +1,60 @@
-var fs = require('fs');
+/**
+ * Servicio de obtención de información de las estaciones de monitoreo
+ */
+
+const { estaciones } = require('./estaciones');
+const { configuracionEndpoints } = require('./endpoints');
+const fs = require('fs');
 const axios = require('axios').default;
 const intervaloProceso = 60000; //1 min
+let contadorRezagados = 0;
+let pausarRezagados = false;
 
-//Lista de sensores registrados
-let sensores = [
-    {
-        idSensor: 'eui-60c5a8fffe78a270',
-        estacion: "Av. Lázaro Cardenas (SEMADET)",
-        idEstacion: 1,
-        latitud: 20.625052,
-        longitud: -103.305382,
-        altitud: 1608
+let elementosSinEnviar = [];
+
+let jsonCIATEQDefault = {
+    fecha: new Date(),
+    valoresAire: {
+        pm10: 0,
+        pm25: 0,
+        o3: 0,
+        so2: 0,
+        no2: 0,
+        co: 0,
+        c6h6: 0,
+        humedadRelativa: 0,
+        temperatura: 0
     },
-    {
-        idSensor: 'eui-60c5abfffe789db4',
-        estacion: "Estación de Bomberos El Salto",   
-        idEstacion: 2,
-        latitud: 20.5133528,
-        longitud: -103.237711,
-        altitud: 1549
-    },
-    {
-        idSensor: 'eui-60c5a8fffe789e39',
-        estacion: "Tienda de Abarrotes Santa Maria Tequepexpan",
-        idEstacion: 3,
-        latitud: 20.5966889,
-        longitud: -103.39381944444445,
-        altitud: 1592
-    },
-    {
-        idSensor: 'eui-60c5a8fffe789e25',
-        estacion: "Martires de Rio Blanco",
-        idEstacion: 4,
-        latitud: 20.5138722,
-        longitud: -103.17602222222223,
-        altitud: 1512
-    },
-    {
-        idSensor: 'eui-60c5a8fffe789dec',
-        estacion: "DIF Juanacatlán",
-        idEstacion: 5,
-        latitud: 20.5105806,
-        longitud: -103.16968055555556,
-        altitud: 1528
-    },
-    {
-        idSensor: 'eui-60c5a8fffe789d8a',
-        estacion: "CU Tonala",
-        idEstacion: 6,
-        latitud: 20.5666667,
-        longitud: -103.2286388888889,
-        altitud: 1544
-    },
-    {
-        idSensor: 'eui-60c5a8fffe789e1b',
-        estacion: "Hacienda Real (Tonalá)",
-        idEstacion: 7,
-        latitud: 20.5902778,
-        longitud: -103.23380555555556,
-        altitud: 1545
-    },
-    {
-        idSensor: 'eui-60c5a8fffe789e7f',
-        estacion: "Instituto de la mujer (Las Pintas)",
-        idEstacion: 8,
-        latitud: 20.57690278,
-        longitud: -103.32652778,
-        altitud: 1000
-    },
-    {
-        idSensor: 'eui-60c5a8fffe78a26c',
-        estacion: "Lico Cortina (Tlaquepaque)",
-        idEstacion: 9,
-        latitud: 20.59263333,
-        longitud: -103.26768611,
-        altitud: 1545
-    },
-    {
-        idSensor: 'eui-60c5a8fffe789b50',
-        estacion: "Dirección Gestión Ambiental y Cambio Climático Tonalá",
-        idEstacion: 10,
-        latitud: 20.625579,
-        longitud: -103.250854,
-        altitud: 1662
+
+    valoresAgua: {
+        ph: 0,
+        conductividad: 0,
+        oxiDisuelto: 0,
+        pb: 0,
+        cd: 0,
+        turbidez: 0,
+        temperatura: 0
     }
-]
+};
 
-var elementosSinEnviar = [];
+//Encabezado para peticion en API de TTN
+const headers = {
+    headers: {
+        'Accept': 'text/event-stream',
+        "Authorization": "Bearer NNSXS.YIVTXIFRYE65FY2MMGKAVVCMRFPNAZXMP7VWRIQ.UJTMOPGL7XG6OHAOOBTXD4Y563TJG5UWB6WOUABUBEHISKU5TRGA" 
+    }
+}
 
-//Elementos de configuracion para envio de informacion a diferentes servidores
-var configuracionEndpoints = [
-    {
-        nombre: "SEMADET",
-        conToken: false,
-        token: "",
-        endpointEnvio: "http://semadet.ciateq.net.mx:8080/semadet/api/mediciones",
-        opcionesObtenerLlave: {
-            url: "http://semadet.ciateq.net.mx:8080/semadet/api/seguridad/autenticar",
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            data: {
-                usuario: "$uSuario_embed20$$",
-                contrasena: "$cCOnTr0294_·M#",
-            }
-        },
-    },
-    {
-        nombre: "SIMAAS",
-        conToken: false,
-        token: "",
-        endpointEnvio: "http://simaas.jalisco.gob.mx:8081/semadet/api/mediciones",
-        opcionesObtenerLlave: {
-            url: "http://simaas.jalisco.gob.mx:8081/semadet/api/seguridad/autenticar",
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            data: {
-                usuario: "$uSuario_embed20$$",
-                contrasena: "$cCOnTr0294_·M#",
-            }
-        }
+/**
+ * Guarda la información enviada en un archivo CSV. Activar dentro de la funcion de obtenerDatos en caso de querer generar el CSV.
+ * 
+ * @param {Datos separados por comas} fila Debe contar con los datos de cada columna del CSV: Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6, pm10, pm25
+ */
 
-    },
-]
-
-//Guarda la información enviada en un archivo CSV
+function getFechaHoraActual(){
+    return `${new Date(Date.now()).toLocaleDateString('es-MX')}`;
+}
 function guardarFila(fila){
-    console.log(`[${getFechaCIATEQ(new Date())}] Guardando Fila...`);
     var encabezados = 'Estacion, Grupo, FechaHora, Temperatura, Humedad Relativa, no2, co, o3, so2, c6h6, pm10, pm25 \n';
     try{
         var nombreArchivo = "DatosEstaciones_" + getFechaArchivo(new Date()) + ".csv"
@@ -144,9 +69,6 @@ function guardarFila(fila){
                 if (err) throw err;
             }); 
         }
-        /*fs.open(nombreArchivo, 'w', function(err, file){
-            if(err) throw err;
-        });*/
         fs.appendFile(nombreArchivo, fila, function (err) {
             if (err) throw err;
         }); 
@@ -156,243 +78,227 @@ function guardarFila(fila){
 }
 
 /**
- * Obtiene los valores de la ultima hora de cada elemento, genera el promedio y lo envía
- * @param {Identificador de los datos del sensor} id 
+ * Obtiene los valores de la ultima medición de cada elemento, genera el promedio y lo envía
+ * 
+ * @param {Objeto con lista de estaciones} estacion 
  */
-async function obtenerDatos(id){
-    let headersList = {
-        'Accept': 'text/event-stream',
-        "Authorization": "Bearer NNSXS.YIVTXIFRYE65FY2MMGKAVVCMRFPNAZXMP7VWRIQ.UJTMOPGL7XG6OHAOOBTXD4Y563TJG5UWB6WOUABUBEHISKU5TRGA" 
-    };
-    console.log(`Obteniendo valores de sensor: ${id.idSensor}...`);
-    await axios.get(`https://nam1.cloud.thethings.network/api/v3/as/applications/prueba3/devices/${id.idSensor}/packages/storage/`, {
-        headers: headersList
-    }).then(async (response)=>{
-        if(response.data == ""){            
-            console.log(`[${getFechaCIATEQ(new Date())}] No hay datos disponibles por el momento...`);
+async function obtenerDatos(estacion){
+
+    console.log(`Obteniendo valores de estacion: ${estacion.nombre}...`);
+    let resTTN = await axios.get(`https://nam1.cloud.thethings.network/api/v3/as/applications/prueba3/devices/${estacion.idSensor}/packages/storage/`, headers);
+    if(resTTN.status == 200){
+        if(resTTN.data == ""){            
+            console.log(`[${getFechaHoraActual()}] Por el momento no hay datos disponibles en la estacion ${estacion.nombre}`);
         }else{
-            var pm10 = 0;
-            var pm25 = 0;
-            var o3 = 0;
-            var so2 = 0;
-            var no2 = 0;
-            var co = 0;
-            var c6h6 = 0;
-            var humedadRelativa = 0;
-            var temperatura = 0;
+            let datosEstacion = resTTN.data.split("\n");
+            let dt = datosEstacion.reverse();
+            //console.log(datosEstacion[0]);
+            console.log(datosEstacion[1]);
+            let fechaIni = new Date(Date.now());
+            let fechaFin = new Date(Date.now()); 
+            fechaFin = new Date(fechaFin.setHours(fechaFin.getHours() + 1));
             
-            var datosCrudos = response.data;
-            var datosSeparados = datosCrudos.split("\n");
-
-            var fechaIni = new Date(); //Cambiar a fecha-hora del dia
-            var fechaFin = new Date(); //cambiar a fecha hora del dia y quitar documentacion de sig linea
-            fechaFin = fechaFin.setHours(fechaFin.getHours() + 1);
-            var fecha = new Date();
-            var horaZSlice = "";
-
-            for(var i=0; i<datosSeparados.length; i++){
+            for(let elementoEstacion of datosEstacion){ //Busco el valor mas actual de la lista y si lo encuentro, lo guardo y envío
                 try{
-                    var datos = JSON.parse(datosSeparados[i]);
-                    var horaZ = "" + datos.result.uplink_message.received_at;
-                    //console.log("datosZ: " + horaZ);
-                    var horaZSlice = horaZ.slice(0, horaZ.length-1);
-                    //console.log("horaZSlide: " + horaZSlice);
-                    fecha = new Date(horaZSlice);
-                    //console.log("Fecha convertida: " + fecha);
+                    /*console.log("---------------------------------");
+                    console.log("Valor de elemento obtenido: ");
+                    console.log(elementoEstacion);
+                    console.log("---------------------------------");*/
+                    let tmp = {...jsonCIATEQDefault};
+                    let jsonDatoEstacion = JSON.parse(elementoEstacion);
+                    let fechaElemento = new Date(jsonDatoEstacion.result.uplink_message.received_at);
+                                        
+                    //Guardando valor
+                    console.log(`fecha ini: ${fechaIni}`);
+                    console.log(`fecha fin: ${fechaFin}`);
+                    console.log(`fecha elemento: ${fechaElemento}`);
                     
-                    if(fecha >= fechaIni && fecha <= fechaFin){ //Desactivar condicion para envio masivo
-                        so2 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.x));
-                        co = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.y));
-                        no2 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_1.z));
-                        o3 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.x));
-                        c6h6 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_2.y));
-                        pm10 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_3.y));
-                        pm25 = Math.abs(parseFloat(datos.result.uplink_message.decoded_payload.accelerometer_3.x));
-                        humedadRelativa = parseFloat(datos.result.uplink_message.decoded_payload.relative_humidity_4);
-                        temperatura = parseFloat(datos.result.uplink_message.decoded_payload.temperature_5);
-                        break; //Desactivar break para envio masivo
-                    }
+                    //if(fechaElemento.getTime() >= fechaIni.getTime() && fechaElemento.getTime() <= fechaFin.getTime()){ 
+
+                        console.log(`Encontré elemento. Revisando si es sensor de aire o de agua`);
+                        tmp.fecha = new Date(fechaElemento.getTime());
+                        
+                        if(jsonDatoEstacion.result.uplink_message.decoded_payload.hasOwnProperty("accelerometer_1")){
+                            console.log("Sensor de aire");
+                            tmp.valoresAire.so2 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_1.x));
+                            tmp.valoresAire.co = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_1.y));
+                            tmp.valoresAire.no2 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_1.z));
+                            tmp.valoresAire.o3 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_2.x));
+                            tmp.valoresAire.c6h6 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_2.y));
+                            tmp.valoresAire.pm10 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_3.y));
+                            tmp.valoresAire.pm25 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_3.x));
+                            tmp.valoresAire.humedadRelativa = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.relative_humidity_4);
+                            tmp.valoresAire.temperatura = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.temperature_5);
+                            
+                            if (isNaN(tmp.valoresAire.temperatura)){
+                                temperatura = 0;
+                            }
+                
+                            if(isNaN(tmp.valoresAire.humedadRelativa)){
+                                humedadRelativa = 0;
+                            }
+                        }else{ //Guardando valores de agua
+                            console.log("Sensor de agua");
+                            tmp.valoresAgua.ph = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_1);
+                            tmp.valoresAgua.conductividad = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_2);
+                            tmp.valoresAgua.oxiDisuelto = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_3);
+                            tmp.valoresAgua.pb = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_4);
+                            tmp.valoresAgua.cd = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_5);
+                            tmp.valoresAgua.turbidez = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_6);
+                            tmp.valoresAgua.temperatura = parseFloat(datoEstacion.result.uplink_message.decoded_payload.temperature_7);
+                        }
+
+                        console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
+                        console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
+                        //await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
+
+                        break;
+                    //}
                 }catch(error){
-                    
+                    //console.log(`Error  al guardar información de un dato de estacion. ${error}`);
+                    //console.log("Buscando nuevos valores...");
                 }
-            } //Llave del FOR: Activar cuando se envia de solo 1. Desactivar cuando hagamos envio masivo
-        
-            if (isNaN(temperatura)){
-                temperatura = 0;
             }
-
-            if(isNaN(humedadRelativa)){
-                humedadRelativa =0;
-            }
-
-            /*console.log("so2: " + so2);
-            console.log("co: " + co);
-            console.log("no2: " + no2);
-            console.log("o3: " + o3);
-            console.log("c6h6: " + c6h6);
-            console.log("humedad Relativa: " + humedadRelativa);
-            console.log("temperatura: " + temperatura);*/
-
-            if(so2 == 0 && co == 0 && no2 == 0 && o3 == 0 && c6h6 == 0 && humedadRelativa == 0 && temperatura == 0){
-                console.log(`[${getFechaCIATEQ(new Date())}] Valores en 0 de la estacion ${id.estacion}. No se enviará nada`);
-            }else{
-                var idgroup = "" + id.idEstacion
-                var JSONCiateq = {
-                    "stationInformation" :
-                    {
-                        "description" : id.estacion,
-                        "idGroup" : idgroup,
-                        "sendingTimeStamp" : getFechaCIATEQ(fecha),
-                        "latitude" : id.latitud,
-                        "longitude" : id.longitud,
-                        "altitude" : id.altitud
-                    },
-                    "environmentalInformation" :
-                    {
-                        "variables" :
-                        [
-                            {
-                                "temperature" : 
-                                {
-                                    "value" : temperatura
-                                }
-                            },
-                            {
-                                "humidity" : 
-                                {
-                                    "value" : humedadRelativa
-                                }
-                            }
-                        ]
-                    },
-                    "airPollutants" : 
-                    [
-                        {
-                            "pm25" : 
-                            {
-                                "value" : pm25
-                            }
-                        },
-                        {
-                            "pm10" :
-                            {
-                                "value" : pm10
-                            }
-                        },
-                        {
-                            "no2" :
-                            {
-                                "value" : no2
-                            }
-                        },
-                        {
-                            "co" :
-                            {
-                                "value" : co
-                            }
-                        },
-                        {
-                            "o3" :
-                            {
-                                "value" : o3
-                            }
-                        },
-                        {
-                            "so2" :
-                            {
-                                "value" : so2
-                            }
-                        },
-                        {
-                            "c6h6" :
-                            {
-                                "value" : c6h6
-                            }
-                        }
-                    ],
-                    "waterIndicators" :
-                    [
-                        {
-                            "ph" : 
-                            {
-                                "value" : 0
-                            }
-                        },
-                        {
-                            "pb" : 
-                            {
-                                "value" : 0
-                            }
-                        },
-                        {
-                            "conductivity" : 
-                            {
-                                "value" : 0
-                            }
-                        },
-                        {
-                            "dissolvedOxygen" : 
-                            {
-                                "value" : 0
-                            }
-                        },
-                        {
-                            "temperature" :
-                            {
-                                "value" : 0
-                            }
-                        },
-                        {
-                            "cd" :
-                            {
-                                "value" : 0
-                            }
-                        },
-                        {
-                            "haze" :
-                            {
-                                "value" : 0
-                            }
-                        }
-                    ]
-                }            
-
-                //Añadiendo datos a CSV
-                var fila = `${id.estacion}, ${id.idEstacion}, ${datos.result.uplink_message.received_at}, ${temperatura}, ${humedadRelativa}, ${no2}, ${co}, ${o3}, ${so2}, ${c6h6}, ${pm10}, ${pm25} \n`
-
-                guardarFila(fila) //desactivar en caso de no querer guardar archivo CSV
-                console.log(`[${getFechaCIATEQ(new Date())}] JSON por enviar *******`);
-                console.log(JSON.stringify(JSONCiateq));
-                console.log(`*******************************************************`);
-
-                //Envio de datos a CIATEQ
-                await enviarDatosCIATEQ(JSONCiateq);
-                pm10 = 0;
-                pm25 = 0;
-                o3 = 0;
-                so2 = 0;
-                no2 = 0;
-                co = 0;
-                c6h6 = 0;
-                humedadRelativa = 0;
-                temperatura = 0;
-            }
-            //} //LlaveFor. Activar cuando sea envio masivo
         }
-    }).catch((error)=>{
-        console.log(`[${getFechaCIATEQ(new Date())}] Error al interactuar con la información proporcionada del sensor. ${error}`);
-    })
+    }else{
+        console.log("Error al obtener información de los sensores.");
+    }
 }
 
-//Cada corrida buscará datos rezagados en caso de que no se hayan podido enviar por alguna razon...
+function getJSON_CIATEQ(valores, estacion){
+    return {
+        "stationInformation" :
+        {
+            "description" : estacion.nombre,
+            "idGroup" : `${estacion.idEstacion}`,
+            "sendingTimeStamp" : getFechaCIATEQ(valores.fecha),
+            "latitude" : estacion.latitud,
+            "longitude" : estacion.longitud,
+            "altitude" : estacion.altitud
+        },
+        "environmentalInformation" :
+        {
+            "variables" :
+            [
+                {
+                    "temperature" : 
+                    {
+                        "value" : valores.valoresAire.temperatura
+                    }
+                },
+                {
+                    "humidity" : 
+                    {
+                        "value" : valores.valoresAire.humedadRelativa
+                    }
+                }
+            ]
+        },
+        "airPollutants" : 
+        [
+            {
+                "pm25" : 
+                {
+                    "value" : valores.valoresAire.pm25
+                }
+            },
+            {
+                "pm10" :
+                {
+                    "value" : valores.valoresAire.pm10
+                }
+            },
+            {
+                "no2" :
+                {
+                    "value" : valores.valoresAire.no2
+                }
+            },
+            {
+                "co" :
+                {
+                    "value" : valores.valoresAire.co
+                }
+            },
+            {
+                "o3" :
+                {
+                    "value" : valores.valoresAire.o3
+                }
+            },
+            {
+                "so2" :
+                {
+                    "value" : valores.valoresAire.so2
+                }
+            },
+            {
+                "c6h6" :
+                {
+                    "value" : valores.valoresAire.c6h6
+                }
+            }
+        ],
+        "waterIndicators" :
+        [
+            {
+                "ph" : 
+                {
+                    "value" : valores.valoresAgua.ph
+                }
+            },
+            {
+                "pb" : 
+                {
+                    "value" : valores.valoresAgua.pb
+                }
+            },
+            {
+                "conductivity" : 
+                {
+                    "value" : valores.valoresAgua.conductividad
+                }
+            },
+            {
+                "dissolvedOxygen" : 
+                {
+                    "value" : valores.valoresAgua.oxiDisuelto
+                }
+            },
+            {
+                "temperature" :
+                {
+                    "value" : valores.valoresAgua.temperatura
+                }
+            },
+            {
+                "cd" :
+                {
+                    "value" : valores.valoresAgua.cd
+                }
+            },
+            {
+                "haze" :
+                {
+                    "value" : valores.valoresAgua.turbidez
+                }
+            }
+        ]
+    }            
+}
+
+/**
+ * Busca datos rezagados en caso de que no se hayan podido enviar
+ * 
+ */
 async function enviarDatosRezagados(){
     if(elementosSinEnviar.length > 0){
-        var pausar = false
+        var pausarRezagados = false
+        contadorRezagados = 0;
         console.log(`[${getFechaCIATEQ(new Date())}] Se encontraron ${elementosSinEnviar.length} elementos rezagados. Se intentarán enviar...`);
         while(elementosSinEnviar.length > 0 && pausar != false){
             datos = elementosSinEnviar.pop();
-            //console.log("dato rezagado por enviar: " + JSON.stringify(datos));
-            var contador = 1;
+            
             for(let i=0; i<configuracionEndpoints.length; i++){
                 if (configuracionEndpoints[i].token != "" || configuracionEndpoints[i].token != undefined){
                     let headersEnvioJSON = {
@@ -407,17 +313,17 @@ async function enviarDatosRezagados(){
                     };
                     await axios.request(opcionesEnvioJSON).then(function (response) {
                         if(response.status == 200){
-                            console.log(`[${getFechaCIATEQ(new Date())}] Elemento ${contador} de ${elementosSinEnviar.length-1} enviado satisfactoriamente`);
-                            //contador++;
+                            console.log(`[${getFechaCIATEQ(new Date())}] Elemento ${contadorRezagados} de ${elementosSinEnviar.length-1} enviado satisfactoriamente`);
+                            contadorRezagados++;
                         }else{
                             console.log(`[${getFechaCIATEQ(new Date())}] Hubo un error al enviar informacion rezagada al servidor ${configuracionEndpoints[i].nombre}. El JSON se guardará para enviarse despues. ${response.status}`);
                             elementosSinEnviar.push(datos);
-                            pausar = true;
+                            pausarRezagados = true;
                         } 
                     }).catch(function (error) {
                         console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON al servidor ${configuracionEndpoints[i].nombre}. Se guardará para enviarse despues. ${error}`);
                         elementosSinEnviar.push(datos);
-                        pausar = true;
+                        pausarRezagados = true;
                     });
                 }else{
                     console.log(`[${getFechaCIATEQ(new Date())}] No se encontró un token en uno o mas servidores. Se buscará nuevo Token...`);
@@ -429,7 +335,11 @@ async function enviarDatosRezagados(){
     }
 }
 
-//Envía los datos a los endpoints guardados en el JSON de configuracionEndpoints
+/**
+ * Envía los datos a los endpoints guardados
+ * 
+ * @param {objeto con informacion} datos información que se enviará a los servidores configurados 
+ */
 async function enviarDatosCIATEQ(datos){
     for(let i=0; i<configuracionEndpoints.length; i++){
         if(configuracionEndpoints[i].conToken == false){
@@ -459,13 +369,11 @@ async function enviarDatosCIATEQ(datos){
                     } 
                 }).catch(function (error) {
                     console.log(`[${getFechaCIATEQ(new Date())}] Error subiendo el JSON al servidor ${configuracionEndpoints[i].nombre}. Se guardará para enviarse despues. ${error}`);
-                    //console.log("Elemento a guardar: " + JSON.stringify(datos));
                     elementosSinEnviar.push(datos);
                     configuracionEndpoints[i].conToken = false;
                 });
             }).catch(function (error) {
                 console.log(`[${getFechaCIATEQ(new Date())}] Error obteniendo el token de conexion para el servidor ${configuracionEndpoints[i].nombre}. El JSON se guardará para enviarse despues. ${error}`);
-                //console.log("Elemento a guardar: " + JSON.stringify(datos));
                 elementosSinEnviar.push(datos);
                 configuracionEndpoints[i].conToken = false;
             });
@@ -505,10 +413,8 @@ function getMes (dmes) {
   
 function getFormatoDia (dia) {
     if ( dia.getDate() < 10) {
-      //console.log(`Regrese: 0${dia.getDate()}`)
       return `0${dia.getDate()}`
     } else {
-      //console.log(`Regrese: ${dia.getDate()}`)
       return `${dia.getDate()}`
     }
 }
@@ -538,22 +444,15 @@ function getFechaArchivo(d) {
 }
 
 async function main () {
-    setInterval(async()=> {
-        console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
-        await enviarDatosRezagados();
-        for(var i=0; i<sensores.length; i++){
-            console.log(`[${getFechaCIATEQ(new Date())}] Revisando: ${sensores[i].idSensor}`);
-            await obtenerDatos(sensores[i]);
+    //setInterval(async()=> {
+        //console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
+        //await enviarDatosRezagados();
+        
+        for(let estacion of estaciones){
+            console.log(`[${getFechaHoraActual()}] Revisando: ${estacion.idSensor}`);
+            await obtenerDatos(estacion);
         }
-        console.log("---------------------------------------------------------------------");
-    }, intervaloProceso);
-
-    //Para uso sin temporaizador (test)
-    /*for(var i=0; i<sensores.length; i++){
-        console.log("Revisando: " + sensores[i].idSensor);
-        await obtenerDatos(sensores[i]);
-    }
-    console.log("---------------------------------------------------------------------");*/
+    //}, intervaloProceso);
 }
 
 main();
