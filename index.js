@@ -7,7 +7,7 @@ const fs = require('fs');
 const axios = require('axios').default;
 const intervaloProceso = 60000; //1 min
 let contadorRezagados = 0;
-let pausarRezagados = false;
+let contadorSubidos = 0;
 
 let elementosSinEnviar = [];
 
@@ -181,27 +181,31 @@ async function obtenerDatos(estacion){
                             }else{
                                 console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
                                 console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
-                                //await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
+                                await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
+                                contadorSubidos++;
                                 break;
                             }
                         }else{ //Guardando valores de agua
                             console.log("Sensor de agua");
-                            tmp.valoresAgua.ph = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_1);
-                            tmp.valoresAgua.conductividad = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_2);
-                            tmp.valoresAgua.oxiDisuelto = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_3);
-                            tmp.valoresAgua.pb = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_4);
-                            tmp.valoresAgua.cd = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_5);
-                            tmp.valoresAgua.turbidez = parseFloat(datoEstacion.result.uplink_message.decoded_payload.analog_out_6);
-                            tmp.valoresAgua.temperatura = parseFloat(datoEstacion.result.uplink_message.decoded_payload.temperature_7);
+                            tmp.valoresAgua.ph = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_1);
+                            tmp.valoresAgua.conductividad = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_2);
+                            tmp.valoresAgua.oxiDisuelto = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_3);
+                            tmp.valoresAgua.pb = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_4);
+                            tmp.valoresAgua.cd = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_5);
+                            tmp.valoresAgua.turbidez = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_6);
+                            tmp.valoresAgua.temperatura = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.temperature_7);
 
                             if(tmp.valoresAgua.ph == 0 && tmp.valoresAgua.conductividad == 0 && tmp.valoresAgua.oxiDisuelto == 0 && tmp.valoresAgua.pb == 0 && tmp.valoresAgua.cd == 0 && 
                                 tmp.valoresAgua.turbidez == 0 && tmp.valoresAgua.temperatura == 0){
                                 console.log(`[${getFechaHoraActual()}] Valores en 0 de la estacion ${estacion.nombre}. No se enviará nada`);
+                                console.log("-----------------------------------------------------------------------------------------")
                                 break;
                             }else{
                                 console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
                                 console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
-                                //await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
+                                await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
+                                console.log("-----------------------------------------------------------------------------------------")
+                                contadorSubidos++;
                                 break;
                             }
                         }
@@ -210,6 +214,7 @@ async function obtenerDatos(estacion){
                     //Lanzado normalmente por JSON CON FORMATO INVALIDO. SE OMITE Y BUSCA SIGUIENTE.
                 }
             }
+            console.log(`Se subieron ${contadorSubidos} elemento(s)`);
         }
     }else{
         console.log(`Error intentando obtener información de la estacion ${estacion.nombre}. Se intentará de nuevo en la siguiente corrida...`);
@@ -494,15 +499,15 @@ function getFechaArchivo(d) {
 }
 
 async function main () {
-    setInterval(async()=> {
-        console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
-        await enviarDatosRezagados();
+    //setInterval(async()=> {
+        //console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
+        //await enviarDatosRezagados();
         
         for(let estacion of estaciones){
             console.log(`[${getFechaHoraActual()}] Revisando: ${estacion.idSensor}`);
             await obtenerDatos(estacion);
         }
-    }, intervaloProceso);
+    //}, intervaloProceso);
 }
 
 main();

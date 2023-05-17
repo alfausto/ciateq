@@ -1,6 +1,6 @@
 //Lista de estaciones registradas.
 let estaciones = [
-    {
+    /*{
         idSensor: 'eui-60c5a8fffe78a270',
         nombre: "Av. Lázaro Cardenas (SEMADET)",
         idEstacion: 1,
@@ -76,6 +76,14 @@ let estaciones = [
         idSensor: 'eui-60c5a8fffe789b50',
         nombre: "Dirección Gestión Ambiental y Cambio Climático Tonalá",
         idEstacion: 10,
+        latitud: 20.625579,
+        longitud: -103.250854,
+        altitud: 1662
+    }*/
+    {
+        idSensor: 'eui-60c5a8fffe789e58',
+        nombre: "Sonda Agua Puente",
+        idEstacion: 11,
         latitud: 20.625579,
         longitud: -103.250854,
         altitud: 1662
