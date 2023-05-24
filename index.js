@@ -119,105 +119,114 @@ function guardarFila(fila){
  * @param {Objeto con valores de una estacion obtenida del archivo de estaciones.js} estacion 
  */
 async function obtenerDatos(estacion){
+    try{
+        console.log(`Obteniendo valores de estacion: ${estacion.nombre}...`);
+        let resTTN = await axios.get(`https://nam1.cloud.thethings.network/api/v3/as/applications/prueba3/devices/${estacion.idSensor}/packages/storage/`, headers);
+        if(resTTN.status == 200){
+            if(resTTN.data == "" || resTTN.data == null || resTTN.data == undefined){            
+                console.log(`[${getFechaHoraActual()}] Por el momento no hay datos disponibles en la estacion ${estacion.nombre}`);
+            }else{
+                let datosEstacion = resTTN.data.split("\n");
+                let dt = datosEstacion.reverse();
+                //console.log(datosEstacion[0]);
+                console.log(datosEstacion[1]);
+                let fechaIni = new Date(Date.now());
+                fechaIni = new Date(fechaIni.setMinutes(fechaIni.getMinutes() - 1));
+                fechaIni = new Date(fechaIni.setSeconds(0));
 
-    console.log(`Obteniendo valores de estacion: ${estacion.nombre}...`);
-    let resTTN = await axios.get(`https://nam1.cloud.thethings.network/api/v3/as/applications/prueba3/devices/${estacion.idSensor}/packages/storage/`, headers);
-    if(resTTN.status == 200){
-        if(resTTN.data == ""){            
-            console.log(`[${getFechaHoraActual()}] Por el momento no hay datos disponibles en la estacion ${estacion.nombre}`);
-        }else{
-            let datosEstacion = resTTN.data.split("\n");
-            let dt = datosEstacion.reverse();
-            //console.log(datosEstacion[0]);
-            console.log(datosEstacion[1]);
-            let fechaIni = new Date(Date.now());
-            let fechaFin = new Date(Date.now()); 
-            fechaFin = new Date(fechaFin.setHours(fechaFin.getHours() + 1));
-            
-            for(let elementoEstacion of datosEstacion){ //Busco el valor mas actual de la lista y si lo encuentro, lo guardo y envío
-                try{
-                    /*console.log("---------------------------------");
-                    console.log("Valor de elemento obtenido: ");
-                    console.log(elementoEstacion);
-                    console.log("---------------------------------");*/
-                    let tmp = {...jsonCIATEQDefault};
-                    let jsonDatoEstacion = JSON.parse(elementoEstacion);
-                    let fechaElemento = new Date(jsonDatoEstacion.result.uplink_message.received_at);
-                                        
-                    //Guardando valor
-                    //console.log(`fecha ini: ${fechaIni}`);
-                    //console.log(`fecha fin: ${fechaFin}`);
-                    //console.log(`fecha elemento: ${fechaElemento}`);
-                    
-                    if(fechaElemento.getTime() >= fechaIni.getTime() && fechaElemento.getTime() <= fechaFin.getTime()){ 
-
-                        console.log(`Encontré elemento. Revisando si es sensor de aire o de agua`);
-                        tmp.fecha = new Date(fechaElemento.getTime());
-                        
-                        if(jsonDatoEstacion.result.uplink_message.decoded_payload.hasOwnProperty("accelerometer_1")){
-                            console.log("Sensor de aire");
-                            tmp.valoresAire.so2 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_1.x));
-                            tmp.valoresAire.co = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_1.y));
-                            tmp.valoresAire.no2 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_1.z));
-                            tmp.valoresAire.o3 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_2.x));
-                            tmp.valoresAire.c6h6 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_2.y));
-                            tmp.valoresAire.pm10 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_3.y));
-                            tmp.valoresAire.pm25 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_3.x));
-                            tmp.valoresAire.humedadRelativa = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.relative_humidity_4);
-                            tmp.valoresAire.temperatura = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.temperature_5);
-                            
-                            if (isNaN(tmp.valoresAire.temperatura)){
-                                temperatura = 0;
-                            }
+                let fechaFin = new Date(Date.now()); 
+                fechaFin = new Date(fechaFin.setHours(fechaFin.getHours() + 1));
                 
-                            if(isNaN(tmp.valoresAire.humedadRelativa)){
-                                humedadRelativa = 0;
-                            }
+                for(let elementoEstacion of datosEstacion){ //Busco el valor mas actual de la lista y si lo encuentro, lo guardo y envío
+                    try{
+                        /*console.log("---------------------------------");
+                        console.log("Valor de elemento obtenido: ");
+                        console.log(elementoEstacion);
+                        console.log("---------------------------------");*/
+                        let tmp = {...jsonCIATEQDefault};
+                        let jsonDatoEstacion = JSON.parse(elementoEstacion);
+                        let fechaElemento = new Date(jsonDatoEstacion.result.uplink_message.received_at);
+                                            
+                        //Guardando valor
+                        console.log(`fecha ini: ${fechaIni}`);
+                        console.log(`fecha fin: ${fechaFin}`);
+                        console.log(`fecha elemento: ${fechaElemento}`);
+                        
+                        if(fechaElemento.getTime() >= fechaIni.getTime() && fechaElemento.getTime() <= fechaFin.getTime()){ 
 
-                            if(tmp.valoresAire.so2 == 0 && tmp.valoresAire.co == 0 && tmp.valoresAire.no2 == 0 && tmp.valoresAire.o3 == 0 && tmp.valoresAire.c6h6 == 0 && 
-                                tmp.valoresAire.pm10 == 0 && tmp.valoresAire.pm25 == 0 && tmp.valoresAire.humedadRelativa == 0 && tmp.valoresAire.temperatura == 0){
-                                console.log(`[${getFechaHoraActual()}] Valores en 0 de la estacion ${estacion.nombre}. No se enviará nada`);
-                                break;
-                            }else{
-                                console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
-                                console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
-                                await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
-                                contadorSubidos++;
-                                break;
-                            }
-                        }else{ //Guardando valores de agua
-                            console.log("Sensor de agua");
-                            tmp.valoresAgua.ph = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_1);
-                            tmp.valoresAgua.conductividad = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_2);
-                            tmp.valoresAgua.oxiDisuelto = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_3);
-                            tmp.valoresAgua.pb = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_4);
-                            tmp.valoresAgua.cd = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_5);
-                            tmp.valoresAgua.turbidez = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_6);
-                            tmp.valoresAgua.temperatura = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.temperature_7);
+                            console.log(`Encontré elemento. Revisando si es sensor de aire o de agua`);
+                            tmp.fecha = new Date(fechaElemento.getTime());
+                            
+                            if(jsonDatoEstacion.result.uplink_message.decoded_payload.hasOwnProperty("accelerometer_1")){
+                                console.log("Sensor de aire");
+                                tmp.valoresAire.so2 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_1.x));
+                                tmp.valoresAire.co = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_1.y));
+                                tmp.valoresAire.no2 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_1.z));
+                                tmp.valoresAire.o3 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_2.x));
+                                tmp.valoresAire.c6h6 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_2.y));
+                                tmp.valoresAire.pm10 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_3.y));
+                                tmp.valoresAire.pm25 = Math.abs(parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.accelerometer_3.x));
+                                tmp.valoresAire.humedadRelativa = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.relative_humidity_4);
+                                tmp.valoresAire.temperatura = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.temperature_5);
+                                
+                                if (isNaN(tmp.valoresAire.temperatura)){
+                                    temperatura = 0;
+                                }
+                    
+                                if(isNaN(tmp.valoresAire.humedadRelativa)){
+                                    humedadRelativa = 0;
+                                }
 
-                            if(tmp.valoresAgua.ph == 0 && tmp.valoresAgua.conductividad == 0 && tmp.valoresAgua.oxiDisuelto == 0 && tmp.valoresAgua.pb == 0 && tmp.valoresAgua.cd == 0 && 
-                                tmp.valoresAgua.turbidez == 0 && tmp.valoresAgua.temperatura == 0){
-                                console.log(`[${getFechaHoraActual()}] Valores en 0 de la estacion ${estacion.nombre}. No se enviará nada`);
-                                console.log("-----------------------------------------------------------------------------------------")
-                                break;
-                            }else{
-                                console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
-                                console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
-                                await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
-                                console.log("-----------------------------------------------------------------------------------------")
-                                contadorSubidos++;
-                                break;
+                                if(tmp.valoresAire.so2 == 0 && tmp.valoresAire.co == 0 && tmp.valoresAire.no2 == 0 && tmp.valoresAire.o3 == 0 && tmp.valoresAire.c6h6 == 0 && 
+                                    tmp.valoresAire.pm10 == 0 && tmp.valoresAire.pm25 == 0 && tmp.valoresAire.humedadRelativa == 0 && tmp.valoresAire.temperatura == 0){
+                                    console.log(`[${getFechaHoraActual()}] Valores en 0 de la estacion ${estacion.nombre}. No se enviará nada`);
+                                    break;
+                                }else{
+                                    console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
+                                    console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
+                                    await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
+                                    contadorSubidos++;
+                                    break;
+                                }
+                            }else{ //Guardando valores de agua
+                                console.log("Sensor de agua");
+                                tmp.valoresAgua.ph = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_1);
+                                tmp.valoresAgua.conductividad = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_2);
+                                tmp.valoresAgua.oxiDisuelto = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_3);
+                                tmp.valoresAgua.pb = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_4);
+                                tmp.valoresAgua.cd = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_5);
+                                tmp.valoresAgua.turbidez = (parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.analog_out_6)) * 100;
+                                tmp.valoresAgua.temperatura = parseFloat(jsonDatoEstacion.result.uplink_message.decoded_payload.temperature_7);
+
+                                if(tmp.valoresAgua.ph == 0 && tmp.valoresAgua.conductividad == 0 && tmp.valoresAgua.oxiDisuelto == 0 && tmp.valoresAgua.pb == 0 && tmp.valoresAgua.cd == 0 && 
+                                    tmp.valoresAgua.turbidez == 0 && tmp.valoresAgua.temperatura == 0){
+                                    console.log(`[${getFechaHoraActual()}] Valores en 0 de la estacion ${estacion.nombre}. No se enviará nada`);
+                                    console.log("-----------------------------------------------------------------------------------------")
+                                    break;
+                                }else{
+                                    console.log(`[${getFechaHoraActual()}] JSON por enviar... `);
+                                    console.log(JSON.stringify(getJSON_CIATEQ(tmp, estacion)));
+                                    await enviarDatosCIATEQ(getJSON_CIATEQ(tmp, estacion));
+                                    console.log("-----------------------------------------------------------------------------------------")
+                                    contadorSubidos++;
+                                    break;
+                                }
                             }
+                        }else{
+                            console.log("El valor está debajo del rango de la fecha.");
+                            break;
                         }
+                    }catch(error){
+                        //Lanzado normalmente por JSON CON FORMATO INVALIDO. SE OMITE Y BUSCA SIGUIENTE.
                     }
-                }catch(error){
-                    //Lanzado normalmente por JSON CON FORMATO INVALIDO. SE OMITE Y BUSCA SIGUIENTE.
                 }
+                //console.log(`Se subieron ${contadorSubidos} elemento(s)`);
             }
-            console.log(`Se subieron ${contadorSubidos} elemento(s)`);
+        }else{
+            console.log(`Error intentando obtener información de la estacion ${estacion.nombre}. Se intentará de nuevo en la siguiente corrida...`);
         }
-    }else{
-        console.log(`Error intentando obtener información de la estacion ${estacion.nombre}. Se intentará de nuevo en la siguiente corrida...`);
+    }catch(error){
+        console.log(`Error general. ${error}`);
     }
 }
 
@@ -499,15 +508,15 @@ function getFechaArchivo(d) {
 }
 
 async function main () {
-    //setInterval(async()=> {
-        //console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
-        //await enviarDatosRezagados();
+    setInterval(async()=> {
+        console.log(`[${getFechaCIATEQ(new Date())}] Verificando elementos sin enviar...`);
+        await enviarDatosRezagados();
         
         for(let estacion of estaciones){
             console.log(`[${getFechaHoraActual()}] Revisando: ${estacion.idSensor}`);
             await obtenerDatos(estacion);
         }
-    //}, intervaloProceso);
+    }, intervaloProceso);
 }
 
 main();
